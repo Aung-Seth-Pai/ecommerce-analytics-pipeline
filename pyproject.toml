@@ -1,0 +1,9 @@
+[project]
+name = "ecommerce-analytics-pipeline"
+version = "0.1.0"
+description = "End-to-end analytics pipeline on BigQuery with dbt, a batch simulator and a Looker Studio dashboard."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dbt>=2.0.8",
+]
