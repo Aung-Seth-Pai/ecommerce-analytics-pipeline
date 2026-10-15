@@ -3,9 +3,18 @@ __pycache__/
 *.py[oc]
 build/
 dist/
-data/
 wheels/
 *.egg-info
 
 # Virtual environments
 .venv
+
+# data
+*.duckdb
+data/
+
+# secrets
+.env
+
+# others
+notebook/scratch
