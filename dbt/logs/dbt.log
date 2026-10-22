@@ -1,0 +1,48 @@
+==================== 2026-10-14T07:54:49.886547Z | 01a13968-286f-7f02-9431-dbf4b4ce77ec ====================
+07:54:49.896338 [info ]: Installing dbt project and profile setup
+07:54:49.909312 [info ]: Info Created .vscode/extensions.json with dbt extension recommendation
+07:54:49.913792 [info ]: Success Project created successfully!
+07:54:49.914773 [info ]: Info Project name: ecommerce_analytics
+07:54:49.914884 [info ]: Info Project directory: ecommerce_analytics
+07:54:49.915671 [info ]: Info Setting up your profile...
+07:54:49.923110 [info ]: Info Creating new profile...
+08:58:51.597070 [info ]: Success Profile written to /home/zephyr/.dbt/profiles.yml
+08:58:51.616476 [info ]: Validating profile inputs, adapters, and connection
+
+08:58:51.620538 [info ]: dbt 2.0.8
+08:58:51.634791 [info ]: Started loading project
+08:58:51.705609 [info ]: Loading ~/.dbt/profiles.yml
+08:58:51.739621 [info ]: Finished loading project [  0.10s]
+08:58:51.749043 [info ]: Started debugging
+08:58:51.750929 [info ]: Debugging profile: dev
+08:58:51.751047 [info ]: Debugging dbt version: 2.0.8
+08:58:51.751089 [info ]: Debugging platform: linux x86_64 (unix)
+08:58:51.753574 [info ]: Debugging adapter type: bigquery (remote)
+08:58:51.782802 [info ]: Debugging dependencies:
+  git: OK
+08:58:51.789039 [info ]: Debugging connection:
+  "database": "portfolio-data-projects-500709",
+  "schema": "ecommerce_dev",
+  "method": "service-account",
+  "location": "us-central1",
+  "dataproc_batch": null
+08:58:51.817452 [debug]: BigQuery driver resolved: bigquery 0.21.0.dev+dbt0.21.19
+08:58:56.437749 [debug]: borrow_tlocal_connection() took 4.625925931s
+08:58:56.448126 [debug]: create_debug_span(...).entered() took 2.64696ms
+08:59:00.269584 [debug]: Query executed on node unknown:
+select 1 as id
+08:59:01.270552 [debug]: adapter.execute() (full call, incl. adbc_execute_with_options) took 4.832706551s
+08:59:01.275415 [info ]: Debugging connection test: ERROR
+08:59:01.275756 [info ]: Finished debugging [  9.53s]
+08:59:01.280012 [error]: [AuthenticationFailed (dbt1011)]: dbt was unable to connect to the database configured for the `bigquery` adapter.
+The following error was returned:
+
+There was a problem connecting to the BigQuery Storage API.
+
+dbt v2 requires the BigQuery Read Session User role to connect to BigQuery. See https://docs.getdbt.com/docs/platform/connect-data-platform/connect-bigquery?version=2.0&name=Fusion#required-permissions to make sure you have all the required permissions to use BigQuery with v2.
+
+Check your database credentials and try again. For more information, visit:
+https://docs.getdbt.com/docs/core/connect-data-platform/connection-profiles
+08:59:01.758735 [info ]: 
+==================== Execution Summary =====================
+Finished 'init' with 1 error for target 'dev' [1h 4m 12s]
