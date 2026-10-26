@@ -5,21 +5,33 @@ description = "End-to-end analytics pipeline on BigQuery with dbt, a batch simul
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "dbt>=2.0.8",
     "duckdb>=1.5.6",
     "google-cloud-bigquery>=3.46.1",
     "google-cloud-bigquery-storage>=2.42.0",
     "pyarrow>=26.0.0",
     "tqdm>=4.70.1",
+    "pandas>=3.0.6",
 ]
 
 [dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+dbt = [
+    "dbt>=2.0.8",
+]
 notebook = [
     "ipykernel>=7.4.0",
-    "pandas>=3.0.6",
     "pandas-gbq>=0.35.2",
     "db-dtypes>=1.8.0",
     "python-dotenv>=1.2.4",
     "matplotlib>=3.11.2",
     "nbconvert>=7.17.2",
 ]
+
+[build-system]
+requires = ["uv_build>=0.9.21,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "ecom_pipeline"
