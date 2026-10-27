@@ -93,14 +93,13 @@ INSERT INTO events VALUES
 def duckdb_conn():
     """A fresh in-memory DuckDB with the seven thelook tables and a few hand-made rows."""
     conn = duckdb.connect(database=":memory:")
-
-    conn.execute("SET TimeZone='UTC'")
-    conn.execute(SCHEMA_SQL)
-    conn.execute(DATA_SQL)
-
-    yield conn
-
-    conn.close()
+    try:
+        conn.execute("SET TimeZone='UTC'")
+        conn.execute(SCHEMA_SQL)
+        conn.execute(DATA_SQL)
+        yield conn
+    finally:
+        conn.close()
 
 @pytest.fixture
 def batch_result(duckdb_conn):
