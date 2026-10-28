@@ -25,6 +25,32 @@ TABLE_TIMESTAMPS = {
 
 TIMESTAMP_DTYPE = pd.DatetimeTZDtype(unit="us", tz="UTC")
 
+def get_order_item_latest_timestamp(order_items: pd.DataFrame, orders: pd.DataFrame, timestamp_columns: Sequence[str]) -> pd.Series:
+    """Return, per order item, the latest of its own timestamps and its order's created_at (nulls ignored).
+
+    The thelook order_items.created_at is synthetic and unrelated to the order
+    (EDA: it differs from the order's on almost every row), so it is not used.
+    The order's created_at stands in for when the item row was first written in the source.
+
+    An item whose order_id is not in orders gets no order timestamp, so
+    only its own timestamps count. If it has none, the result is NaT.
+    Neither input is modified.
+
+    Args:
+        order_items: Item rows. Needs an order_id column and the timestamp columns.
+        orders: Order rows, one per order_id. Needs order_id and created_at.
+        timestamp_columns: The item's own timestamp columns to include,
+            e.g. shipped_at, delivered_at, returned_at.
+
+    Returns:
+        A datetime64[us, UTC] Series with the same index as order_items.
+    """
+    order_created_at_by_order_id = orders.set_index("order_id")["created_at"]
+    items_with_order_created_at = order_items.assign(order_created_at=order_items['order_id'].map(order_created_at_by_order_id))
+
+    effective_cols = (*timestamp_columns, "order_created_at")
+    return get_latest_timestamp(items_with_order_created_at, effective_cols)
+
 def get_latest_timestamp(input_dataframe: pd.DataFrame, timestamp_columns: Sequence[str]) -> pd.Series:
     """Return, per row, the latest of the given timestamp columns (nulls ignored).
         A row whose columns are all null, or an empty column list, gives NaT.
@@ -85,7 +111,12 @@ def simulate_batch(
         data_tables[table] = rel.order(sort_key).df()
 
         timestamp_cols = TABLE_TIMESTAMPS[table]
-        latest_timestamp = get_latest_timestamp(data_tables[table], timestamp_cols) 
+        # order_items needs the order's created_at, so orders must already be built:
+        # keep "orders" before "order_items" in TABLE_KEYS.
+        if table == "order_items":
+            latest_timestamp = get_order_item_latest_timestamp(data_tables['order_items'], data_tables['orders'], timestamp_cols)
+        else:
+            latest_timestamp = get_latest_timestamp(data_tables[table], timestamp_cols)
         data_tables[table] = add_metadata_columns(data_tables[table], latest_timestamp)
 
     # return the data object
