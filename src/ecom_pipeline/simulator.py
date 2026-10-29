@@ -13,6 +13,8 @@ TABLE_KEYS = {
     "events":"id"
 }
 
+# lifecycle timestamp columns per table: used for masking and for _source_updated_at.
+# order_items leaves out created_at on purpose since its synthetic data is wrong (see get_order_item_latest_timestamp).
 TABLE_TIMESTAMPS = {
     "users":("created_at",),
     "orders":("created_at", "shipped_at", "delivered_at", "returned_at"),
@@ -71,6 +73,34 @@ def add_metadata_columns(input_dataframe: pd.DataFrame, source_updated_at: pd.Se
         _source_updated_at = source_updated_at,
         _seq = range(1, len(input_dataframe)+1)
     )
+
+def mask_future_timestamps(
+        input_dataframe: pd.DataFrame, 
+        timestamp_columns: Sequence[str], 
+        cutoff: pd.Timestamp
+) -> pd.DataFrame:
+    """Return a copy of the table with every timestamp at or after the cutoff set to null.
+
+    This reproduces what the source knew at the cutoff: anything that had not
+    happened yet is hidden. The cutoff itself counts as not yet happened,
+    because windows are half-open (window_end is exclusive).
+    Columns outside timestamp_columns, the row order and the index are unchanged.
+    The input is not modified.
+
+    Args:
+        input_dataframe: Table with timezone-aware (UTC) timestamp columns.
+        timestamp_columns: The lifecycle columns to mask.
+        cutoff: Timezone-aware (UTC) moment; timestamps >= cutoff are hidden.
+
+    Returns:
+        A new DataFrame with the same columns and dtypes as the input.
+    """
+    timestamp_columns = list(timestamp_columns)
+    masked_df = input_dataframe.copy()
+    condition = masked_df[timestamp_columns] >= cutoff
+    masked_df[timestamp_columns]  = masked_df[timestamp_columns].mask(condition, None)
+    return masked_df
+
 
 def simulate_batch(
         database_connection: duckdb.DuckDBPyConnection,

@@ -103,6 +103,7 @@ def duckdb_conn():
 
 @pytest.fixture
 def batch_result(duckdb_conn):
+    """simulate_batch output for the fixture database"""
     result = simulator.simulate_batch(
         database_connection=duckdb_conn,
         window_start=pd.Timestamp(2026,1,1, tz='UTC'),
@@ -110,3 +111,4 @@ def batch_result(duckdb_conn):
         seed=42
     )
     return result
+
