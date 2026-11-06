@@ -102,13 +102,16 @@ def duckdb_conn():
         conn.close()
 
 @pytest.fixture
-def batch_result(duckdb_conn):
-    """simulate_batch output for the fixture database"""
-    result = simulator.simulate_batch(
-        database_connection=duckdb_conn,
-        window_start=pd.Timestamp(2026,1,1, tz='UTC'),
-        window_end=pd.Timestamp(2026,1,2, tz='UTC'),
-        seed=42
-    )
-    return result
+def simulate(duckdb_conn):
+    """Return a function that runs simulate_batch on the fixture data for a given window.
 
+    Tests call it with their own window, so the window stays visible in the test.
+    """
+    def _simulate(window_start, window_end):
+        return simulator.simulate_batch(duckdb_conn, window_start=window_start, window_end=window_end)
+    return _simulate
+
+@pytest.fixture
+def batch_result(simulate):
+    """Batch 0 over the fixture data: no lower bound, upper bound is 2026-01-10."""
+    return simulate(None, pd.Timestamp("2026-01-10", tz="UTC"))
