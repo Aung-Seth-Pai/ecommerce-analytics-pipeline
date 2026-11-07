@@ -13,6 +13,11 @@ wheels/
 *.duckdb
 data/
 
+# dbt
+dbt/**/target/
+dbt/**/logs/
+dbt/**/dbt_packages/
+
 # secrets
 .env
 

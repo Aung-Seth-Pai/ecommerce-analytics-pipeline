@@ -7,7 +7,7 @@ import duckdb
 import pytest
 import pandas as pd
 from pandas.testing import assert_frame_equal
-from ecom_pipeline import simulator
+from ecom_pipeline.generator import simulator
 
 UTC_US = pd.DatetimeTZDtype(unit="us", tz="UTC")
  

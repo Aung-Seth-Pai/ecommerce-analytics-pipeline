@@ -6,7 +6,7 @@ Whole batches are tested in test_batch_windows.py.
 """
 
 import pytest
-from ecom_pipeline import simulator
+from ecom_pipeline.generator import simulator
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 

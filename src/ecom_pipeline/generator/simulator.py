@@ -1,6 +1,6 @@
 import pandas as pd
 import duckdb
-from collections.abc import Sequence, Mapping
+from collections.abc import Sequence, Mapping, Iterator
 
 # maps each table to the key column which will be used to order its rows
 TABLE_KEYS = {
@@ -288,6 +288,111 @@ def derive_op(
     is_insert = is_written_in_window(created_at, window_start, window_end)
     return is_insert.map({True: "I", False: "U"})
 
+def build_table(
+        database_connection: duckdb.DuckDBPyConnection,
+        table: str,
+        *,
+        window_start: pd.Timestamp | None,
+        window_end: pd.Timestamp,
+) -> pd.DataFrame:
+    """Return one table of a batch, with _op, _source_updated_at and _seq appended.
+
+    This is the per-table part of simulate_batch. Everything it builds along the way (the full
+    table, the masked copy, the filtered copy) goes out of scope when it returns, so only the
+    returned DataFrame stays in memory.
+
+    Args:
+        database_connection: Open DuckDB connection to the snapshot.
+        table: One of the keys of TABLE_KEYS.
+        window_start: Inclusive start of the window (UTC), or None for no lower bound (batch 0).
+        window_end: Exclusive end of the window (UTC).
+
+    Returns:
+        The table's rows for this batch. See simulate_batch for the columns.
+    """
+    # key is required to order the rows, so that _seq is consistent across runs
+    key = TABLE_KEYS[table]
+    rel = database_connection.table(table)
+    timestamp_cols = TABLE_TIMESTAMPS[table] # the lifecycle timestamp columns required for masking and for _source_updated_at
+
+    if table in STATIC_TABLES:
+        # static tables are loaded once, in batch 0, with a null _source_updated_at
+        if window_start is None:
+            # batch 0: the whole table, ordered by key
+            temp_table = read_table(rel, order_by=key)
+        else:
+            # later batches: no rows, but the same columns and dtypes as batch 0
+            temp_table = read_empty_table(rel)
+        # all null for static tables; it makes sure the _source_updated_at column exists
+        latest_timestamp = get_latest_timestamp(temp_table, timestamp_cols)
+        op = "I"  # every static row is a first appearance (batch 0)
+    else:
+        # replayed tables: hide the future, derive the status, then keep only rows that exist
+        temp_table = read_table(rel, order_by=key)
+
+        if table == "order_items":
+            # working column: the parent's created_at, read from the orders table itself
+            orders_created_at = read_table(database_connection.table("orders").project("order_id, created_at"))
+            temp_table = attach_order_created_at(temp_table, orders_created_at)
+
+        temp_table = mask_future_timestamps(temp_table, timestamp_cols, window_end)
+
+        # only orders and order_items have a status column (users and events do not),
+        # so only they get a status derived from the timestamps that survived masking
+        if table in STATUS_COLUMN_BY_TABLE:
+            temp_table[STATUS_COLUMN_BY_TABLE[table]] = derive_status(
+                temp_table,
+                STATUS_COLUMN_BY_TABLE[table],
+                STATUS_MAPPING_BY_TABLE[table],
+                PASSTHROUGH_STATUSES
+                )
+
+        latest_timestamp = get_latest_timestamp(temp_table, timestamp_cols)
+
+        # keep only rows that were written inside the window, i.e. whose latest timestamp is inside the window
+        keep = is_written_in_window(latest_timestamp, window_start, window_end)
+        temp_table = temp_table[keep]
+        latest_timestamp = latest_timestamp[keep]
+
+        # "I" if the row was created inside the window, "U" if it was created earlier.
+        # This needs order_created_at for order_items, so it comes before that column is dropped.
+        op = derive_op(temp_table[CREATION_COLUMN_BY_TABLE[table]], window_start, window_end)
+
+        if table == "order_items":
+            # drop the working column, it is not part of the source schema
+            temp_table = temp_table.drop(columns="order_created_at")
+
+    return add_metadata_columns(temp_table, latest_timestamp, op)
+
+
+def iter_batch_tables(
+        database_connection: duckdb.DuckDBPyConnection,
+        *,
+        window_start: pd.Timestamp | None=None,
+        window_end: pd.Timestamp,
+        seed: int=42
+) -> Iterator[tuple[str, pd.DataFrame]]:
+    """Yield the seven tables of a batch one at a time, as (table_name, DataFrame) pairs.
+
+    Same content as simulate_batch, but a table is only built when the caller asks for the next
+    one. A caller that writes each table out and drops it before asking for the next never holds
+    more than one table in memory, which matters for the biggest table (events).
+
+    Args:
+        database_connection: Open DuckDB connection to the snapshot.
+        window_start: Inclusive start of the window (UTC), or None for no lower bound (batch 0).
+        window_end: Exclusive end of the window (UTC).
+        seed: Integer seed for the randomised quirks added in later phases.
+
+    Yields:
+        (table name, DataFrame), in the order of TABLE_KEYS.
+    """
+    for table in TABLE_KEYS:
+        yield table, build_table(
+            database_connection, table, window_start=window_start, window_end=window_end
+        )
+
+
 def simulate_batch(
         database_connection: duckdb.DuckDBPyConnection,
         *,
@@ -317,7 +422,8 @@ def simulate_batch(
     orders and order_items get their status recomputed from the timestamps that exist at
     window_end (Cancelled is kept as it is). The loader adds _batch_id, _batch_date and
     _loaded_at. This function only reads; it writes nothing and keeps no state, so any batch
-    can be built alone.
+    can be built alone. All seven tables are held in memory at once; use iter_batch_tables to
+    get them one at a time.
  
     Args:
         database_connection: Open DuckDB connection to the snapshot. The caller opens and
@@ -331,60 +437,6 @@ def simulate_batch(
     Returns:
         A dictionary mapping each of the seven table names to its DataFrame.
     """
-
-    data_tables: dict[str, pd.DataFrame] = {} # prepare output box, to be filled with the seven tables
-
-    # key is required to order the rows, so that _seq is consistent across runs
-    for table, key in TABLE_KEYS.items():
-        rel = database_connection.table(table)
-        timestamp_cols = TABLE_TIMESTAMPS[table] # the lifecycle timestamp columns required for masking and for _source_updated_at
-
-        if table in STATIC_TABLES:
-            # static tables are loaded once, in batch 0, with a null _source_updated_at
-            if window_start is None:
-                # batch 0: the whole table, ordered by key
-                temp_table = read_table(rel, order_by=key)
-            else:
-                # later batches: no rows, but the same columns and dtypes as batch 0
-                temp_table = read_empty_table(rel)
-            # all null for static tables; it makes sure the _source_updated_at column exists
-            latest_timestamp = get_latest_timestamp(temp_table, timestamp_cols)
-            op = "I" # every static row is a first appearance (batch 0)
-        else:
-            # replayed tables: hide the future, derive the status, then keep only rows that exist
-            temp_table = read_table(rel, order_by=key)
-
-            if table == "order_items":
-                # working column: the parent's created_at, read from the orders table itself
-                orders_created_at = read_table(database_connection.table("orders").project("order_id, created_at"))
-                temp_table = attach_order_created_at(temp_table, orders_created_at)
-
-            temp_table = mask_future_timestamps(temp_table, timestamp_cols, window_end)
-
-            # only for tables with a status column, we derive the status from the timestamps that survived masking.
-            # users and events have no status, so only orders and order_items get one
-            if table in STATUS_COLUMN_BY_TABLE:
-                # since users and events have no status, we only derive status for orders and order_items
-                temp_table[STATUS_COLUMN_BY_TABLE[table]] = derive_status(
-                    temp_table,
-                    STATUS_COLUMN_BY_TABLE[table],
-                    STATUS_MAPPING_BY_TABLE[table],
-                    PASSTHROUGH_STATUSES
-                    )
-            
-            latest_timestamp = get_latest_timestamp(temp_table, timestamp_cols)
-
-            # keep only rows that were written inside the window, i.e. whose latest timestamp is inside the window
-            keep = is_written_in_window(latest_timestamp, window_start, window_end)
-            temp_table = temp_table[keep]
-            latest_timestamp = latest_timestamp[keep]
-
-            op = derive_op(temp_table[CREATION_COLUMN_BY_TABLE[table]], window_start, window_end)
-
-            if table == "order_items":
-                # drop the working column, it is not part of the source schema
-                temp_table = temp_table.drop(columns="order_created_at")
-
-        data_tables[table] = add_metadata_columns(temp_table, latest_timestamp, op)
-
-    return data_tables
+    return dict(iter_batch_tables(
+        database_connection, window_start=window_start, window_end=window_end, seed=seed
+    ))

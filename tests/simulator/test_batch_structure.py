@@ -8,7 +8,7 @@ the values inside a batch are tested in test_batch_windows.py and test_source_up
 import pytest
 import pandas as pd
 
-from ecom_pipeline import simulator
+from ecom_pipeline.generator import simulator
 
 TABLE_NAMES = ['orders', 'order_items', 'products', 'users', 'events', 'inventory_items', 'distribution_centers']
 
