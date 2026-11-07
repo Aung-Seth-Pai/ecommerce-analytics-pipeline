@@ -1,6 +1,6 @@
 import pytest
 import duckdb
-from ecom_pipeline import simulator
+from ecom_pipeline.generator import simulator
 import pandas as pd
 
 SCHEMA_SQL = """

@@ -7,7 +7,7 @@ _source_updated_at gets for every table in batch 0.
 import pytest
 import pandas as pd
 from pandas.testing import assert_series_equal, assert_frame_equal
-from ecom_pipeline import simulator
+from ecom_pipeline.generator import simulator
 
 UTC_US = pd.DatetimeTZDtype(unit="us", tz="UTC")
 def utc(*values):
