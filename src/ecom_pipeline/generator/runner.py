@@ -18,7 +18,6 @@ so memory use is about N times the biggest table. The default is 1 worker.
 import argparse
 import json
 import multiprocessing
-import os
 import shutil
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -30,9 +29,8 @@ import pandas as pd
 from tqdm import tqdm
 
 from ecom_pipeline.generator import simulator
+from ecom_pipeline.config import Settings
 
-# <repo>/src/ecom_pipeline/generator/runner.py -> parents[3] is the repo root, wherever the script is run from
-DEFAULT_LANDING_DIR = Path(__file__).resolve().parents[3] / "data" / "landing"
 MANIFEST_NAME = "_manifest.json"
 
 
@@ -70,7 +68,7 @@ def save_batch_to_landing(
     window_start: pd.Timestamp | None,
     window_end: pd.Timestamp,
     seed: int,
-    base_dir: Path = DEFAULT_LANDING_DIR,
+    base_dir: Path,
 ) -> Path:
     """Write one batch as <base_dir>/batch_<id>/<table>.parquet plus _manifest.json.
 
@@ -181,7 +179,7 @@ def run(
     *,
     replay_start: pd.Timestamp,
     replay_end: pd.Timestamp,
-    base_dir: Path = DEFAULT_LANDING_DIR,
+    base_dir: Path,
     seed: int = 42,
     workers: int = 1,
 ) -> int:
@@ -258,38 +256,36 @@ def _utc_midnight(text: str) -> pd.Timestamp:
 
 
 def main() -> None:
-    """Command-line entry point: read the snapshot path from .env and run the range."""
+    """Command-line entry point: read Settings, then run the range."""
     parser = argparse.ArgumentParser(description="Write simulated batches to the landing zone.")
     parser.add_argument("--start", type=_utc_midnight, required=True, help="first replayed day, YYYY-MM-DD")
-    parser.add_argument("--end", type=_utc_midnight, required=True, help="exclusive end of the last window, YYYY-MM-DD")
-    parser.add_argument("--landing-dir", type=Path, default=DEFAULT_LANDING_DIR)
+    parser.add_argument("--end", type=_utc_midnight, required=True, help="exclusive end of the last window, YYYY-MM-DD; equal to --start writes batch 0 only")
+    parser.add_argument("--landing-dir", type=Path, default=None, help="where batches are written; default is $LANDING_DIR from Settings")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--workers", type=int, default=1,
         help="daily batches built at the same time; each needs about one table's worth of RAM (default 1)",
     )
     args = parser.parse_args()
-    if args.end <= args.start:
-        parser.error("--end must be after --start")
+    if args.end < args.start:
+        parser.error("--end must not be before --start (equal means batch 0 only)")
     if args.workers < 1:
         parser.error("--workers must be at least 1")
 
-    from dotenv import load_dotenv             # imported here so importing this module needs no .env
-    load_dotenv()
-    duckdb_path = os.getenv("DUCKDB_PATH")
-    if not duckdb_path or not Path(duckdb_path).exists():
-        raise FileNotFoundError(f"DUCKDB_PATH is missing or file not exist: {duckdb_path!r}. Check .env file.")
+    settings = Settings()
+    landing_dir = args.landing_dir if args.landing_dir is not None else settings.landing_dir
+    if not settings.duckdb_path.exists():
+        raise FileNotFoundError(f"Snapshot not found: {settings.duckdb_path}. Check DUCKDB_PATH in .env.")
 
     written = run(
-        duckdb_path,
+        settings.duckdb_path,
         replay_start=args.start,
         replay_end=args.end,
-        base_dir=args.landing_dir,
+        base_dir=landing_dir,
         seed=args.seed,
         workers=args.workers,
     )
-    print(f"Wrote {written} batches to {args.landing_dir}")
-
+    print(f"Wrote {written} batches to {landing_dir}")
 
 if __name__ == "__main__":
     main()

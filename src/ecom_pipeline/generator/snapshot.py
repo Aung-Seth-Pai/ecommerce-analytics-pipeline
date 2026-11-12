@@ -1,11 +1,10 @@
 import duckdb
 from google.cloud import bigquery
-import os
 from tqdm import tqdm
 import sys
-
 from datetime import datetime, timezone
-from pathlib import Path
+
+from ecom_pipeline.config import Settings
 
 MANIFEST_TABLE = "_snapshot_manifest"
 
@@ -90,7 +89,7 @@ def snapshot_bigquery_dataset_to_duckdb(
                         to_utc_naive(snapshot_taken_at)
                     ))
                 else:
-                    pbar.write(f"[ERROR] Failed to process '{table_name}': {e}")
+                    pbar.write(f"[ERROR] Failed to process '{table_name}': row count mismatch (BigQuery: {bq_row_count}, DuckDB: {duckdb_row_count})")
                     failed_tables.append(table_name)
 
             except Exception as e:
@@ -121,19 +120,16 @@ def snapshot_bigquery_dataset_to_duckdb(
     finally:
         duckdb_conn.close()
 
-if __name__ == "__main__":
-    # Example usage
-    settings = {
-        "GCP_PROJECT":      os.getenv("GCP_PROJECT"),
-        "BQ_DATASET_ID":    os.getenv("BQ_DATASET_ID"),
-        "DUCKDB_PATH":      os.getenv("DUCKDB_PATH"),
-    }
-    missing = [name for name, value in settings.items() if not value]
-    if missing:
-        print(f"Missing environment variables: {missing}. Check your .env file")
-
+def main() -> None:
+    """Command-line entry point: read Settings and copy every table of the source dataset."""
+    settings = Settings()
     snapshot_bigquery_dataset_to_duckdb(
-        gcp_project=settings['GCP_PROJECT'],
-        bq_dataset_id=settings['BQ_DATASET_ID'],
-        duckdb_path=settings['DUCKDB_PATH'],
-        tables=None)
+        gcp_project=settings.require_gcp_project(),
+        bq_dataset_id=settings.source_dataset,
+        duckdb_path=str(settings.duckdb_path),
+        tables=None,
+    )
+
+
+if __name__ == "__main__":
+    main()
