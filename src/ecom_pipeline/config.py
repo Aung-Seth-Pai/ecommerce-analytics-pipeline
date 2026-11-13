@@ -16,7 +16,6 @@ in production.
 
     uv run python -m ecom_pipeline.config      # print the values the commands would use
 """
-
 from pathlib import Path
 from typing import Literal
 
@@ -25,6 +24,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # <repo>/src/ecom_pipeline/config.py -> parents[2] is the repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 class Settings(BaseSettings):
     """Paths and Google Cloud names used by the snapshot, the runner and the loader."""
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     landing_dir: Path = Path("data/landing")
     batch_log_path: Path = Path("data/batch_log.duckdb")
 
-    @field_validator("duckdb_path", "landing_dir", "batch_log_path", mode="after")
+    @field_validator("duckdb_path", "landing_dir", "batch_log_path", "local_warehouse_path", mode="after")
     @classmethod
     def _from_repo_root(cls, path: Path) -> Path:
         """Resolve a relative path against the repo root instead of the current folder."""
