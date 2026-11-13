@@ -6,12 +6,12 @@ neither can change the format without the other noticing.
 
     <landing_dir>/
         batch_00063/                  a finished batch: final name and a manifest inside
-            orders.parquet ...        one Parquet file per table
+            orders.parquet ...        one file per table, in the format its manifest entry names
             _manifest.json            written last; validated by the Manifest model
         batch_00064.tmp/              a batch being written, or left by a crash: never read
 
 Rules every writer follows:
-    1. Write everything into the .tmp folder, the manifest written last, then rename it to its final name.
+    1. Write everything into the .tmp folder, the manifest last, then rename it to its final name.
     2. A folder counts as a batch only when its name is a finished-batch name and it holds a manifest.
     3. Every table carries the metadata columns in METADATA_COLUMNS.
 
@@ -65,9 +65,15 @@ def parse_batch_id(name: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def table_file_name(table_name: str) -> str:
-    """Return the Parquet file name of a table inside a batch folder, e.g. orders.parquet."""
-    return f"{table_name}.parquet"
+DEFAULT_FILE_FORMAT = "parquet"
+
+
+def table_file_name(table_name: str, file_format: str = DEFAULT_FILE_FORMAT) -> str:
+    """Return the file name of a table inside a batch folder, e.g. orders.parquet.
+
+    The extension is the file format's name, so the format can be read from the name as well.
+    """
+    return f"{table_name}.{file_format}"
 
 
 def check_metadata_columns(table_name: str, columns) -> None:
@@ -87,8 +93,10 @@ class TableSummary(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     row_count: int = Field(ge=0)
-    file_name: str                 # equal to table_file_name(<table>)
+    file_name: str                 # equal to table_file_name(<table>, file_format)
     byte_size: int = Field(ge=0)
+    # The format the file is written in. Manifests written before this field existed are Parquet.
+    file_format: str = DEFAULT_FILE_FORMAT
 
 
 class Manifest(BaseModel):
@@ -117,8 +125,9 @@ class Manifest(BaseModel):
         if self.window_start is not None and self.window_start >= self.window_end:
             raise ValueError("window_start must be before window_end")
         for table_name, summary in self.tables.items():
-            if summary.file_name != table_file_name(table_name):
-                raise ValueError(f"{table_name}: file_name must be {table_file_name(table_name)!r}")
+            expected = table_file_name(table_name, summary.file_format)
+            if summary.file_name != expected:
+                raise ValueError(f"{table_name}: file_name must be {expected!r}")
         return self
 
 
@@ -144,3 +153,4 @@ def read_manifest(batch_dir: Path) -> Manifest | None:
     if manifest.batch_id != folder_batch_id:
         raise ValueError(f"{batch_dir} holds a manifest for batch {manifest.batch_id}")
     return manifest
+
