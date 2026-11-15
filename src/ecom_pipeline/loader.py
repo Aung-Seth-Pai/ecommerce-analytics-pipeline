@@ -108,7 +108,7 @@ def load_batch(client: bigquery.Client, dataset_id: str, folder: Path, manifest:
     batch_date = manifest.window_end.astimezone(timezone.utc).date()
     appended = 0
     for table_name, summary in manifest.tables.items():
-        if summary.row_count == 0:             # e.g. the static tables after batch 0
+        if summary.row_count == 0:             # e.g. the static tables after batch 0 have no data
             continue
         if summary.file_format != "parquet":
             raise ValueError(f"{folder / summary.file_name}: only parquet files can be loaded")
