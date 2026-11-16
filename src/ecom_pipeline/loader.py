@@ -20,6 +20,7 @@ has finished without an error.
 import argparse
 import io
 import logging
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,6 +33,13 @@ from ecom_pipeline.config import Settings
 from ecom_pipeline.landing_contract import Manifest, read_manifest
 
 LOADED_BATCHES_TABLE = "_loaded_batches"
+CHUNK_ROWS = 100_000                           # rows held in memory at a time while copying a file
+
+INGESTION_FIELDS = [
+    pa.field("_batch_id", pa.int64()),
+    pa.field("_batch_date", pa.date32()),
+    pa.field("_loaded_at", pa.timestamp("us", tz="UTC")),
+]
 
 log = logging.getLogger(__name__)
 
@@ -60,38 +68,82 @@ def add_ingestion_columns(
     table: pa.Table, *, batch_id: int, batch_date, loaded_at: datetime
 ) -> pa.Table:
     """Return the table with _batch_id, _batch_date and _loaded_at appended."""
-    rows = table.num_rows
-    return (
-        table.append_column("_batch_id", pa.repeat(pa.scalar(batch_id, pa.int64()), rows))
-        .append_column("_batch_date", pa.repeat(pa.scalar(batch_date, pa.date32()), rows))
-        .append_column(
-            "_loaded_at", pa.repeat(pa.scalar(loaded_at, pa.timestamp("us", tz="UTC")), rows)
-        )
-    )
+    values = (batch_id, batch_date, loaded_at)
+    for field, value in zip(INGESTION_FIELDS, values):
+        table = table.append_column(field, pa.repeat(pa.scalar(value, field.type), table.num_rows))
+    return table
 
 
-def append_to_table(client: bigquery.Client, table_id: str, table: pa.Table) -> None:
-    """Append an Arrow table to a BigQuery table with one load job, creating the table if needed.
+def write_with_ingestion_columns(
+    source: Path,
+    destination,
+    *,
+    batch_id: int,
+    batch_date,
+    loaded_at: datetime,
+    chunk_rows: int = CHUNK_ROWS,
+) -> int:
+    """Copy a Parquet file into destination with the ingestion columns added, one chunk at a time.
 
-    A load job is atomic: either all its rows are committed or none are.
+    Only chunk_rows rows are decompressed in memory at once, whatever the size of the file.
+
+    Args:
+        source: the landed Parquet file.
+        destination: an open binary file to write the new Parquet file into.
+
+    Returns:
+        The number of rows written.
+    """
+    # pre_buffer=False: read one chunk's pages at a time instead of a whole row group's columns
+    parquet_file = pq.ParquetFile(source, pre_buffer=False)
+    schema = parquet_file.schema_arrow
+    for field in INGESTION_FIELDS:
+        schema = schema.append(field)
+    rows_written = 0
+    with pq.ParquetWriter(destination, schema) as writer:
+        for chunk in parquet_file.iter_batches(batch_size=chunk_rows):
+            writer.write_table(add_ingestion_columns(
+                pa.Table.from_batches([chunk]),
+                batch_id=batch_id, batch_date=batch_date, loaded_at=loaded_at,
+            ))
+            rows_written += chunk.num_rows
+    return rows_written
+
+
+def append_parquet_file(
+    client: bigquery.Client, table_id: str, file, *, expected_rows: int
+) -> None:
+    """Append a Parquet file to a BigQuery table with one load job, creating the table if needed.
+
+    A load job is atomic: either all its rows are committed or none are. The client uploads the
+    file in pieces of up to 100 MB, so the file is never read into memory whole.
+
+    Args:
+        file: an open binary file positioned at its start.
+        expected_rows: the rows the file holds; the job must report the same number.
 
     Raises:
         google.api_core.exceptions.GoogleAPIError: the job failed; nothing was written.
-        RuntimeError: the job wrote another number of rows than it was given.
+        RuntimeError: the job wrote another number of rows than expected.
     """
-    buffer = io.BytesIO()
-    pq.write_table(table, buffer)
-    buffer.seek(0)
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
     )
-    job = client.load_table_from_file(buffer, table_id, job_config=job_config)
+    job = client.load_table_from_file(file, table_id, job_config=job_config)
     job.result()                               # waits for the job; raises if it failed
-    if job.output_rows != table.num_rows:
+    if job.output_rows != expected_rows:
         raise RuntimeError(
-            f"{table_id}: the load job wrote {job.output_rows} rows, expected {table.num_rows}"
+            f"{table_id}: the load job wrote {job.output_rows} rows, expected {expected_rows}"
         )
+
+
+def append_small_table(client: bigquery.Client, table_id: str, table: pa.Table) -> None:
+    """Append an Arrow table that fits in memory, such as the one-row batch marker."""
+    buffer = io.BytesIO()
+    pq.write_table(table, buffer)
+    buffer.seek(0)
+    append_parquet_file(client, table_id, buffer, expected_rows=table.num_rows)
 
 
 def load_batch(client: bigquery.Client, dataset_id: str, folder: Path, manifest: Manifest) -> int:
@@ -104,7 +156,7 @@ def load_batch(client: bigquery.Client, dataset_id: str, folder: Path, manifest:
         ValueError: a file is not Parquet, the only format this loader reads.
         RuntimeError: a file holds another number of rows than its manifest says.
     """
-    loaded_at = datetime.now(timezone.utc) 
+    loaded_at = datetime.now(timezone.utc)
     batch_date = manifest.window_end.astimezone(timezone.utc).date()
     appended = 0
     for table_name, summary in manifest.tables.items():
@@ -112,16 +164,17 @@ def load_batch(client: bigquery.Client, dataset_id: str, folder: Path, manifest:
             continue
         if summary.file_format != "parquet":
             raise ValueError(f"{folder / summary.file_name}: only parquet files can be loaded")
-        table = pq.read_table(folder / summary.file_name)
-        if table.num_rows != summary.row_count:
-            raise RuntimeError(
-                f"{folder / summary.file_name} has {table.num_rows} rows, "
-                f"its manifest says {summary.row_count}"
+        source = folder / summary.file_name
+        # the copy with ingestion columns goes to a temporary file on disk, not to memory;
+        # the file is deleted when the with block ends
+        with tempfile.TemporaryFile() as staged:
+            rows = write_with_ingestion_columns(
+                source, staged, batch_id=manifest.batch_id, batch_date=batch_date, loaded_at=loaded_at
             )
-        table = add_ingestion_columns(
-            table, batch_id=manifest.batch_id, batch_date=batch_date, loaded_at=loaded_at
-        )
-        append_to_table(client, f"{dataset_id}.{table_name}", table)
+            if rows != summary.row_count:
+                raise RuntimeError(f"{source} has {rows} rows, its manifest says {summary.row_count}")
+            staged.seek(0)
+            append_parquet_file(client, f"{dataset_id}.{table_name}", staged, expected_rows=rows)
         appended += 1
 
     # written last: a batch is listed here only once all its tables are in
@@ -129,7 +182,7 @@ def load_batch(client: bigquery.Client, dataset_id: str, folder: Path, manifest:
         "batch_id": pa.array([manifest.batch_id], pa.int64()),
         "loaded_at": pa.array([loaded_at], pa.timestamp("us", tz="UTC")),
     })
-    append_to_table(client, f"{dataset_id}.{LOADED_BATCHES_TABLE}", marker)
+    append_small_table(client, f"{dataset_id}.{LOADED_BATCHES_TABLE}", marker)
     return appended
 
 

@@ -7,6 +7,7 @@ records, and what happens when a load fails. Whether BigQuery accepts the files 
 the real run, not here.
 """
 import json
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pandas as pd
@@ -191,7 +192,21 @@ def test_empty_tables_are_skipped(landing_dir, client):
     # the static tables have rows only in batch 0, so each gets exactly one load job
     assert len(client.appends["products"]) == 1
     assert set(client.rows("products")["_batch_id"]) == {0}
+    
 
+def test_a_file_copied_in_small_chunks_keeps_every_row_in_order(landing_dir, tmp_path):
+    source = landing_dir / batch_dir_name(0) / "inventory_items.parquet"     # 5 rows
+    moment = datetime(2026, 1, 3, tzinfo=timezone.utc)
+    with open(tmp_path / "copy.parquet", "wb") as destination:
+        rows = loader.write_with_ingestion_columns(
+            source, destination, batch_id=0, batch_date=moment.date(), loaded_at=moment,
+            chunk_rows=2,                                                    # 3 chunks: 2, 2, 1
+        )
+    original = pq.read_table(source)
+    copy = pq.read_table(tmp_path / "copy.parquet")
+    assert rows == copy.num_rows == original.num_rows
+    assert copy.select(original.column_names).equals(original)
+    assert set(copy["_batch_id"].to_pylist()) == {0}
 
 # --- later runs -------------------------------------------------------------------------------
 
