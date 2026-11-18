@@ -202,6 +202,7 @@ models:
       - name: event_id
         description: "Event id."
         data_tests:
+          - unique
           - not_null
       - name: user_id
         description: "The user who triggered the event; null for anonymous sessions."
