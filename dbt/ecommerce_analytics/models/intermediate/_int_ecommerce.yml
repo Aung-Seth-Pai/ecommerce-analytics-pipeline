@@ -1,0 +1,148 @@
+version: 2
+
+models:
+  - name: int_orders_current
+    description: "Latest version of each order: one row per order_id. Deleted orders are kept, flagged by is_deleted."
+    columns:
+      - name: order_id
+        description: "Order id."
+        data_tests:
+          - unique
+          - not_null
+      - name: user_id
+        description: "The user who placed the order."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_users_current')
+                field: user_id
+      - name: is_deleted
+        description: "True when the latest version is a delete (_op = 'D')."
+        data_tests:
+          - not_null
+
+  - name: int_order_items_current
+    description: "Latest version of each order item: one row per order_item_id. Deleted items are kept, flagged by is_deleted."
+    columns:
+      - name: order_item_id
+        description: "Order item id."
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: "The order this item belongs to."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_orders_current')
+                field: order_id
+      - name: user_id
+        description: "The user who placed the order."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_users_current')
+                field: user_id
+      - name: product_id
+        description: "The product sold."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_products_current')
+                field: product_id
+      - name: inventory_item_id
+        description: "The stock unit sold."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_inventory_items_current')
+                field: inventory_item_id
+      - name: is_deleted
+        description: "True when the latest version is a delete (_op = 'D')."
+        data_tests:
+          - not_null
+
+  - name: int_users_current
+    description: "Latest version of each user: one row per user_id. Deleted users are kept, flagged by is_deleted."
+    columns:
+      - name: user_id
+        description: "User id."
+        data_tests:
+          - unique
+          - not_null
+      - name: is_deleted
+        description: "True when the latest version is a delete (_op = 'D')."
+        data_tests:
+          - not_null
+
+  - name: int_products_current
+    description: "Latest version of each product: one row per product_id. Deleted products are kept, flagged by is_deleted."
+    columns:
+      - name: product_id
+        description: "Product id."
+        data_tests:
+          - unique
+          - not_null
+      - name: distribution_center_id
+        description: "The distribution center that stocks the product."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_distribution_centers_current')
+                field: distribution_center_id
+      - name: is_deleted
+        description: "True when the latest version is a delete (_op = 'D')."
+        data_tests:
+          - not_null
+
+  - name: int_inventory_items_current
+    description: "Latest version of each stock unit: one row per inventory_item_id. Deleted units are kept, flagged by is_deleted."
+    columns:
+      - name: inventory_item_id
+        description: "Inventory item id."
+        data_tests:
+          - unique
+          - not_null
+      - name: product_id
+        description: "The product this unit is."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('int_products_current')
+                field: product_id
+      - name: is_deleted
+        description: "True when the latest version is a delete (_op = 'D')."
+        data_tests:
+          - not_null
+
+  - name: int_distribution_centers_current
+    description: "Latest version of each distribution center: one row per distribution_center_id. Deleted centers are kept, flagged by is_deleted."
+    columns:
+      - name: distribution_center_id
+        description: "Distribution center id."
+        data_tests:
+          - unique
+          - not_null
+      - name: is_deleted
+        description: "True when the latest version is a delete (_op = 'D')."
+        data_tests:
+          - not_null
+
+unit_tests:
+  - name: current_state_keeps_the_latest_version_of_each_order
+    description: >
+      Order 1 has three versions; the last two share a _source_updated_at, so the later batch wins.
+      Order 2's latest version is a delete, so it is kept and flagged.
+    model: int_orders_current
+    given:
+      - input: ref('stg_orders')
+        rows:
+          - {order_id: 1, status: Processing, _op: I, _source_updated_at: "2019-02-20 10:00:00", _batch_id: 1, _seq: 1}
+          - {order_id: 1, status: Shipped,    _op: U, _source_updated_at: "2019-02-22 09:00:00", _batch_id: 3, _seq: 1}
+          - {order_id: 1, status: Complete,   _op: U, _source_updated_at: "2019-02-22 09:00:00", _batch_id: 4, _seq: 2}
+          - {order_id: 2, status: Processing, _op: I, _source_updated_at: "2019-02-20 11:00:00", _batch_id: 1, _seq: 2}
+          - {order_id: 2, status: Processing, _op: D, _source_updated_at: "2019-02-21 08:00:00", _batch_id: 2, _seq: 1}
+    expect:
+      rows:
+        - {order_id: 1, status: Complete,   is_deleted: false}
+        - {order_id: 2, status: Processing, is_deleted: true}
