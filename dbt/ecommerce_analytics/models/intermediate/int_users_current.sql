@@ -1,2 +1,2 @@
--- Latest version of each order item: one row per order_item_id.
+-- Latest version of each user: one row per user_id.
 {{ current_state(ref('stg_users'), 'user_id') }}
