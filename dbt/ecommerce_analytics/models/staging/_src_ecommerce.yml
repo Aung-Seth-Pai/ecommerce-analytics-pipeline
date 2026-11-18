@@ -1,0 +1,415 @@
+version: 2
+
+sources:
+  - name: ecommerce
+    description: >
+      Raw layer: the landed batches appended by the loader, one table per source table plus
+      _loaded_batches. Append-only: every delivered version of a row is kept, and a batch can be
+      appended more than once.
+    database: "{{ target.database }}"
+    schema: ecommerce_raw
+    config:
+      loaded_at_field: _loaded_at
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+    tables:
+      - name: _loaded_batches
+        description: "Batches whose tables are all loaded: one row per batch."
+        config:
+          loaded_at_field: loaded_at
+        columns:
+          - name: batch_id
+            description: "A batch whose tables are all loaded."
+            data_tests:
+              - not_null
+              - unique:
+                  config:
+                    severity: warn
+          - name: loaded_at
+            description: "When the loader loaded the batch; equal to _loaded_at on the batch's rows."
+            data_tests:
+              - not_null
+
+      - name: distribution_centers
+        description: "Distribution centers. Delivered only in batch 0."
+        config:
+          freshness: null    # delivered only in batch 0
+        columns:
+          - name: id
+            description: "Distribution center id."
+            data_tests:
+              - not_null
+          - name: name
+            description: "Name of the distribution center."
+          - name: latitude
+            description: "Latitude of the distribution center."
+          - name: longitude
+            description: "Longitude of the distribution center."
+          - name: distribution_center_geom
+            description: "The location as a WKT point string."
+          - name: _op
+            description: "{{ doc('col__op') }}"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['I', 'U', 'D']
+          - name: _source_updated_at
+            description: "{{ doc('col__source_updated_at') }}"
+          - name: _seq
+            description: "{{ doc('col__seq') }}"
+          - name: _batch_id
+            description: "{{ doc('col__batch_id') }}"
+            data_tests:
+              - not_null
+          - name: _batch_date
+            description: "{{ doc('col__batch_date') }}"
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: "{{ doc('col__loaded_at') }}"
+            data_tests:
+              - not_null
+
+      - name: events
+        description: "Website events. One row per delivered version."
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id, _batch_id, _loaded_at]
+              config:
+                severity: warn
+        columns:
+          - name: id
+            description: "Event id."
+            data_tests:
+              - not_null
+          - name: user_id
+            description: "The user who triggered the event; null for anonymous sessions."
+          - name: sequence_number
+            description: "Order of the event within its session."
+          - name: session_id
+            description: "Browsing session id."
+          - name: created_at
+            description: "When the event happened."
+          - name: ip_address
+            description: "IP address of the client."
+          - name: city
+            description: "City derived from the IP address."
+          - name: state
+            description: "State or province derived from the IP address."
+          - name: postal_code
+            description: "Postal code derived from the IP address."
+          - name: browser
+            description: "Browser used."
+          - name: traffic_source
+            description: "Channel that brought the session."
+          - name: uri
+            description: "Page path requested."
+          - name: event_type
+            description: "Kind of interaction, such as home, department, product, cart or purchase."
+          - name: _op
+            description: "{{ doc('col__op') }}"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['I', 'U', 'D']
+          - name: _source_updated_at
+            description: "{{ doc('col__source_updated_at') }}"
+          - name: _seq
+            description: "{{ doc('col__seq') }}"
+          - name: _batch_id
+            description: "{{ doc('col__batch_id') }}"
+            data_tests:
+              - not_null
+          - name: _batch_date
+            description: "{{ doc('col__batch_date') }}"
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: "{{ doc('col__loaded_at') }}"
+            data_tests:
+              - not_null
+
+      - name: inventory_items
+        description: "Stock units, one per physical item, with product details copied in. Delivered only in batch 0, so sold_at can be later than the batch's window end."
+        config:
+          freshness: null    # delivered only in batch 0
+        columns:
+          - name: id
+            description: "Inventory item id."
+            data_tests:
+              - not_null
+          - name: product_id
+            description: "The product this unit is."
+          - name: created_at
+            description: "When the unit entered stock."
+          - name: sold_at
+            description: "When the unit was sold; null if unsold."
+          - name: cost
+            description: "What the unit cost the shop."
+          - name: product_category
+            description: "Product category, copied from products."
+          - name: product_name
+            description: "Product name, copied from products."
+          - name: product_brand
+            description: "Product brand, copied from products."
+          - name: product_retail_price
+            description: "Product retail price, copied from products."
+          - name: product_department
+            description: "Product department, copied from products."
+          - name: product_sku
+            description: "Product SKU, copied from products."
+          - name: product_distribution_center_id
+            description: "The product's distribution center, copied from products."
+          - name: _op
+            description: "{{ doc('col__op') }}"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['I', 'U', 'D']
+          - name: _source_updated_at
+            description: "{{ doc('col__source_updated_at') }}"
+          - name: _seq
+            description: "{{ doc('col__seq') }}"
+          - name: _batch_id
+            description: "{{ doc('col__batch_id') }}"
+            data_tests:
+              - not_null
+          - name: _batch_date
+            description: "{{ doc('col__batch_date') }}"
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: "{{ doc('col__loaded_at') }}"
+            data_tests:
+              - not_null
+
+      - name: order_items
+        description: "Order line items. One row per delivered version."
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id, _batch_id, _loaded_at]
+              config:
+                severity: warn
+        columns:
+          - name: id
+            description: "Order item id."
+            data_tests:
+              - not_null
+          - name: order_id
+            description: "The order this item belongs to."
+          - name: user_id
+            description: "The user who placed the order."
+          - name: product_id
+            description: "The product sold."
+          - name: inventory_item_id
+            description: "The stock unit sold."
+          - name: status
+            description: "Status of the item in this version."
+          - name: created_at
+            description: "Synthetic in thelook: unrelated to the order's created_at."
+          - name: shipped_at
+            description: "When the item shipped; null if not shipped in this version."
+          - name: delivered_at
+            description: "When the item was delivered; null if not delivered in this version."
+          - name: returned_at
+            description: "When the item was returned; null if not returned in this version."
+          - name: sale_price
+            description: "Price the item sold for."
+          - name: _op
+            description: "{{ doc('col__op') }}"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['I', 'U', 'D']
+          - name: _source_updated_at
+            description: "{{ doc('col__source_updated_at') }}"
+          - name: _seq
+            description: "{{ doc('col__seq') }}"
+          - name: _batch_id
+            description: "{{ doc('col__batch_id') }}"
+            data_tests:
+              - not_null
+          - name: _batch_date
+            description: "{{ doc('col__batch_date') }}"
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: "{{ doc('col__loaded_at') }}"
+            data_tests:
+              - not_null
+
+      - name: orders
+        description: "Orders. One row per delivered version."
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [order_id, _batch_id, _loaded_at]
+              config:
+                severity: warn
+        columns:
+          - name: order_id
+            description: "Order id."
+            data_tests:
+              - not_null
+          - name: user_id
+            description: "The user who placed the order."
+          - name: status
+            description: "Status of the order in this version."
+          - name: gender
+            description: "The ordering user's gender, copied from users."
+          - name: created_at
+            description: "When the order was placed."
+          - name: returned_at
+            description: "When the order was returned; null if not returned in this version."
+          - name: shipped_at
+            description: "When the order shipped; null if not shipped in this version."
+          - name: delivered_at
+            description: "When the order was delivered; null if not delivered in this version."
+          - name: num_of_item
+            description: "Number of items in the order."
+          - name: _op
+            description: "{{ doc('col__op') }}"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['I', 'U', 'D']
+          - name: _source_updated_at
+            description: "{{ doc('col__source_updated_at') }}"
+          - name: _seq
+            description: "{{ doc('col__seq') }}"
+          - name: _batch_id
+            description: "{{ doc('col__batch_id') }}"
+            data_tests:
+              - not_null
+          - name: _batch_date
+            description: "{{ doc('col__batch_date') }}"
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: "{{ doc('col__loaded_at') }}"
+            data_tests:
+              - not_null
+
+      - name: products
+        description: "Product catalogue. Delivered only in batch 0."
+        config:
+          freshness: null    # delivered only in batch 0
+        columns:
+          - name: id
+            description: "Product id."
+            data_tests:
+              - not_null
+          - name: cost
+            description: "What the product costs the shop."
+          - name: category
+            description: "Product category."
+          - name: name
+            description: "Product name."
+          - name: brand
+            description: "Product brand."
+          - name: retail_price
+            description: "List price of the product."
+          - name: department
+            description: "Product department."
+          - name: sku
+            description: "Stock keeping unit code."
+          - name: distribution_center_id
+            description: "The distribution center that stocks the product."
+          - name: _op
+            description: "{{ doc('col__op') }}"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['I', 'U', 'D']
+          - name: _source_updated_at
+            description: "{{ doc('col__source_updated_at') }}"
+          - name: _seq
+            description: "{{ doc('col__seq') }}"
+          - name: _batch_id
+            description: "{{ doc('col__batch_id') }}"
+            data_tests:
+              - not_null
+          - name: _batch_date
+            description: "{{ doc('col__batch_date') }}"
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: "{{ doc('col__loaded_at') }}"
+            data_tests:
+              - not_null
+
+      - name: users
+        description: "Customers. One row per delivered version."
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id, _batch_id, _loaded_at]
+              config:
+                severity: warn
+        columns:
+          - name: id
+            description: "User id."
+            data_tests:
+              - not_null
+          - name: first_name
+            description: "First name."
+          - name: last_name
+            description: "Last name."
+          - name: email
+            description: "Email address."
+          - name: age
+            description: "Age in years."
+          - name: gender
+            description: "Gender."
+          - name: state
+            description: "State or province of the address."
+          - name: street_address
+            description: "Street address."
+          - name: postal_code
+            description: "Postal code."
+          - name: city
+            description: "City."
+          - name: country
+            description: "Country."
+          - name: latitude
+            description: "Latitude of the address."
+          - name: longitude
+            description: "Longitude of the address."
+          - name: traffic_source
+            description: "Channel the user signed up through."
+          - name: created_at
+            description: "When the account was created."
+          - name: user_geom
+            description: "The address location as a WKT point string."
+          - name: _op
+            description: "{{ doc('col__op') }}"
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['I', 'U', 'D']
+          - name: _source_updated_at
+            description: "{{ doc('col__source_updated_at') }}"
+          - name: _seq
+            description: "{{ doc('col__seq') }}"
+          - name: _batch_id
+            description: "{{ doc('col__batch_id') }}"
+            data_tests:
+              - not_null
+          - name: _batch_date
+            description: "{{ doc('col__batch_date') }}"
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: "{{ doc('col__loaded_at') }}"
+            data_tests:
+              - not_null
