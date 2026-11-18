@@ -14,9 +14,9 @@ wheels/
 data/
 
 # dbt
-dbt/**/target/
-dbt/**/logs/
-dbt/**/dbt_packages/
+target/
+logs/
+dbt_packages/
 
 # secrets
 .env
