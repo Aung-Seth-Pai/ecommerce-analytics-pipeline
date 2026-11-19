@@ -24,7 +24,7 @@ renamed as (
         inventory_item_id,
 
         -- attributes
-        status,
+        status order_item_status,
         sale_price,
 
         -- timestamps

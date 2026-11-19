@@ -25,7 +25,7 @@ renamed as (
         email,
         age,
         gender,
-        traffic_source,
+        traffic_source as user_traffic_source,
 
         -- address
         street_address,

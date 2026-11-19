@@ -25,12 +25,12 @@ renamed as (
         sequence_number,
         event_type,
         uri,
-        traffic_source,
+        traffic_source as session_traffic_source,
         browser,
         ip_address,
-        city,
-        state,
-        postal_code,
+        city as ip_city,
+        state as ip_state,
+        postal_code as ip_postal_code,
 
         -- timestamps
         created_at,

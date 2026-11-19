@@ -22,7 +22,7 @@ renamed as (
         product_distribution_center_id,
 
         -- attributes
-        cost,
+        cost as unit_cost,
         product_name,
         product_brand,
         product_category,

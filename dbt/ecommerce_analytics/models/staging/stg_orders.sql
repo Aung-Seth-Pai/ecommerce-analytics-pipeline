@@ -21,7 +21,7 @@ renamed as (
         user_id,
 
         -- attributes
-        status,
+        status as order_status,
         gender,
         num_of_item as item_count,
 

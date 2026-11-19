@@ -385,7 +385,7 @@ sources:
           - name: longitude
             description: "Longitude of the address."
           - name: traffic_source
-            description: "Channel the user signed up through."
+            description: "Traffic source recorded on the user."
           - name: created_at
             description: "When the account was created."
           - name: user_geom

@@ -26,7 +26,7 @@ renamed as (
         category,
         department,
         sku,
-        cost,
+        cost as product_cost,
         retail_price,
 
         -- metadata

@@ -137,12 +137,12 @@ unit_tests:
     given:
       - input: ref('stg_orders')
         rows:
-          - {order_id: 1, status: Processing, _op: I, _source_updated_at: "2019-02-20 10:00:00", _batch_id: 1, _seq: 1}
-          - {order_id: 1, status: Shipped,    _op: U, _source_updated_at: "2019-02-22 09:00:00", _batch_id: 3, _seq: 1}
-          - {order_id: 1, status: Complete,   _op: U, _source_updated_at: "2019-02-22 09:00:00", _batch_id: 4, _seq: 2}
-          - {order_id: 2, status: Processing, _op: I, _source_updated_at: "2019-02-20 11:00:00", _batch_id: 1, _seq: 2}
-          - {order_id: 2, status: Processing, _op: D, _source_updated_at: "2019-02-21 08:00:00", _batch_id: 2, _seq: 1}
+          - {order_id: 1, order_status: Processing, _op: I, _source_updated_at: "2019-02-20 10:00:00", _batch_id: 1, _seq: 1}
+          - {order_id: 1, order_status: Shipped,    _op: U, _source_updated_at: "2019-02-22 09:00:00", _batch_id: 3, _seq: 1}
+          - {order_id: 1, order_status: Complete,   _op: U, _source_updated_at: "2019-02-22 09:00:00", _batch_id: 4, _seq: 2}
+          - {order_id: 2, order_status: Processing, _op: I, _source_updated_at: "2019-02-20 11:00:00", _batch_id: 1, _seq: 2}
+          - {order_id: 2, order_status: Processing, _op: D, _source_updated_at: "2019-02-21 08:00:00", _batch_id: 2, _seq: 1}
     expect:
       rows:
-        - {order_id: 1, status: Complete,   is_deleted: false}
-        - {order_id: 2, status: Processing, is_deleted: true}
+        - {order_id: 1, order_status: Complete,   is_deleted: false}
+        - {order_id: 2, order_status: Processing, is_deleted: true}
