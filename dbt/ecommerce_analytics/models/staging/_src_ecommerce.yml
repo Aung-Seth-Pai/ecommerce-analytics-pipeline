@@ -145,9 +145,9 @@ sources:
           - name: product_id
             description: "The product this unit is."
           - name: created_at
-            description: "When the unit entered stock."
+            description: "When the unit entered stock. Synthetic in thelook: unrelated to the order items that reference the unit."
           - name: sold_at
-            description: "When the unit was sold; null if unsold."
+            description: "When the unit was sold; null if unsold. Synthetic in thelook: not set on the units that order items reference."
           - name: cost
             description: "What the unit cost the shop."
           - name: product_category

@@ -342,11 +342,11 @@ models:
       - name: product_retail_price
         description: "Product retail price, copied from products."
       - name: created_at
-        description: "When the unit entered stock."
+        description: "When the unit entered stock. Synthetic in thelook: unrelated to the order items that reference the unit."
         data_tests:
           - not_null
       - name: sold_at
-        description: "When the unit was sold; null if unsold."
+        description: "When the unit was sold; null if unsold. Synthetic in thelook: not set on the units that order items reference."
       - name: _op
         description: "{{ doc('col__op') }}"
       - name: _source_updated_at
