@@ -22,13 +22,13 @@ renamed as (
         product_distribution_center_id,
 
         -- attributes
-        cost as unit_cost,
+        round(cast(cost as numeric), 4) as unit_cost,
         product_name,
         product_brand,
         product_category,
         product_department,
         product_sku,
-        product_retail_price,
+        round(cast(product_retail_price as numeric), 2) as product_retail_price,
 
         -- timestamps
         created_at,

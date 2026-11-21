@@ -26,8 +26,8 @@ renamed as (
         category,
         department,
         sku,
-        cost as product_cost,
-        retail_price,
+        round(cast(cost as numeric), 4) as product_cost,
+        round(cast(retail_price as numeric), 2) as retail_price,
 
         -- metadata
         _op,
