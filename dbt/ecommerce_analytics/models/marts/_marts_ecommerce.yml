@@ -1,6 +1,117 @@
 version: 2
 
 models:
+  - name: fct_order_items
+    description: >
+      One row per order item that is not deleted: a transaction fact. Revenue (net_sale_price)
+      counts an item only while it is neither cancelled nor returned, judged on its current state,
+      so a later return lowers the revenue of the item's original order date. sale_price is what
+      was ordered (gross). For revenue by the period in which money moved, use fct_sales_movements.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "net_sale_price <= sale_price"
+    columns:
+      - name: order_item_id
+        description: "Order item id."
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: "The order the item belongs to (degenerate dimension)."
+        data_tests:
+          - not_null
+      - name: user_id
+        description: "The user who placed the order."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: product_id
+        description: "The product sold."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: distribution_center_id
+        description: "The distribution center of the stock unit sold."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_distribution_centers')
+                field: distribution_center_id
+      - name: order_date
+        description: "UTC date the order was placed."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: shipped_date
+        description: "UTC date the item shipped; null if not shipped."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: delivered_date
+        description: "UTC date the item was delivered; null if not delivered."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: returned_date
+        description: "UTC date the item was returned; null if not returned."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: order_created_at
+        description: "When the order was placed (UTC)."
+      - name: shipped_at
+        description: "When the item shipped (UTC)."
+      - name: delivered_at
+        description: "When the item was delivered (UTC)."
+      - name: returned_at
+        description: "When the item was returned (UTC)."
+      - name: order_item_status
+        description: "The item's current status."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Processing', 'Shipped', 'Complete', 'Returned', 'Cancelled']
+      - name: is_cancelled
+        description: "True when the item's status is Cancelled."
+      - name: is_returned
+        description: "True when the item's status is Returned."
+      - name: sale_price
+        description: "What the item sold for (gross)."
+        data_tests:
+          - not_null
+      - name: unit_cost
+        description: "What the sold stock unit cost the shop."
+        data_tests:
+          - not_null
+      - name: gross_margin
+        description: "sale_price minus unit_cost."
+      - name: net_sale_price
+        description: "sale_price while the item is neither cancelled nor returned, else 0. The revenue measure."
+        data_tests:
+          - not_null
+      - name: net_margin
+        description: "gross_margin while the item is neither cancelled nor returned, else 0."
+        data_tests:
+          - not_null
+
   - name: dim_date
     description: "One row per calendar day (UTC) from 2018-01-01 to 2028-12-31."
     columns:
