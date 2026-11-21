@@ -1,0 +1,149 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "One row per calendar day (UTC) from 2018-01-01 to 2028-12-31."
+    columns:
+      - name: date_day
+        description: "The calendar day."
+        data_tests:
+          - unique
+          - not_null
+      - name: year
+        description: "Calendar year."
+      - name: quarter
+        description: "Calendar quarter, 1 to 4."
+      - name: year_quarter
+        description: "Year and quarter, such as 2019-Q1."
+      - name: month
+        description: "Calendar month, 1 to 12."
+      - name: month_name
+        description: "Month name, such as February."
+      - name: year_month
+        description: "Year and month, such as 2019-02."
+      - name: week_start_date
+        description: "The Monday that starts the day's ISO week."
+      - name: iso_week
+        description: "ISO week number, 1 to 53."
+      - name: day_of_month
+        description: "Day of the month, 1 to 31."
+      - name: day_of_year
+        description: "Day of the year, 1 to 366."
+      - name: day_of_week
+        description: "ISO day of the week: 1 = Monday to 7 = Sunday."
+      - name: day_name
+        description: "Day name, such as Tuesday."
+      - name: is_weekend
+        description: "True on Saturday and Sunday."
+      - name: is_last_day_of_month
+        description: "True on the last day of its month."
+
+  - name: dim_users
+    description: "One row per user (current state). Personal data (names, email, street address) is left out. Deleted users are kept, flagged by is_deleted."
+    columns:
+      - name: user_id
+        description: "User id."
+        data_tests:
+          - unique
+          - not_null
+      - name: age
+        description: "Age in years."
+      - name: age_band
+        description: "Age group: Under 18, 18-24, 25-34, 35-44, 45-54, 55-64 or 65+."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Under 18', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']
+      - name: age_band_order
+        description: "Sort order of age_band, 1 (Under 18) to 7 (65+)."
+      - name: gender
+        description: "Gender."
+      - name: country
+        description: "Country."
+      - name: state
+        description: "State or province of the address."
+      - name: city
+        description: "City."
+      - name: postal_code
+        description: "Postal code."
+      - name: latitude
+        description: "Latitude of the address."
+      - name: longitude
+        description: "Longitude of the address."
+      - name: user_location
+        description: "The address location as a geography point."
+      - name: user_traffic_source
+        description: "Traffic source recorded on the user."
+      - name: user_created_at
+        description: "When the account was created."
+      - name: is_deleted
+        description: "True when the user's latest version is a delete."
+        data_tests:
+          - not_null
+      - name: first_seen_at
+        description: "Start of the user's first session; null if the user has no events."
+      - name: last_seen_at
+        description: "Last event of the user's latest session; null if the user has no events."
+      - name: session_count
+        description: "Number of sessions; 0 if the user has no events."
+        data_tests:
+          - not_null
+      - name: event_count
+        description: "Number of events; 0 if the user has no events."
+        data_tests:
+          - not_null
+      - name: primary_browser
+        description: "The browser of most of the user's sessions; on a tie, the browser of the most recent one. Overwritten as the user keeps browsing."
+      - name: first_session_traffic_source
+        description: "Traffic source of the user's first session."
+      - name: last_session_traffic_source
+        description: "Traffic source of the user's latest session. Overwritten as the user keeps browsing."
+
+  - name: dim_products
+    description: "One row per product (current state). Deleted products are kept, flagged by is_deleted."
+    columns:
+      - name: product_id
+        description: "Product id."
+        data_tests:
+          - unique
+          - not_null
+      - name: product_name
+        description: "Product name."
+      - name: brand
+        description: "Product brand."
+      - name: category
+        description: "Product category."
+      - name: department
+        description: "Product department."
+      - name: sku
+        description: "Stock keeping unit code."
+      - name: retail_price
+        description: "List price of the product."
+      - name: product_cost
+        description: "What the product costs the shop."
+      - name: is_deleted
+        description: "True when the product's latest version is a delete."
+        data_tests:
+          - not_null
+
+  - name: dim_distribution_centers
+    description: "One row per distribution center (current state). Deleted centers are kept, flagged by is_deleted."
+    columns:
+      - name: distribution_center_id
+        description: "Distribution center id."
+        data_tests:
+          - unique
+          - not_null
+      - name: distribution_center_name
+        description: "Name of the distribution center."
+      - name: latitude
+        description: "Latitude of the distribution center."
+      - name: longitude
+        description: "Longitude of the distribution center."
+      - name: distribution_center_location
+        description: "The location as a geography point."
+      - name: is_deleted
+        description: "True when the center's latest version is a delete."
+        data_tests:
+          - not_null

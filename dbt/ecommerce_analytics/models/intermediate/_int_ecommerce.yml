@@ -1,6 +1,38 @@
 version: 2
 
 models:
+  - name: int_users_web_activity
+    description: "One row per user with at least one event: their site activity, summarised from their sessions. Browser and traffic source come from sessions, where each is the same for every event."
+    columns:
+      - name: user_id
+        description: "User id."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_users_current')
+                field: user_id
+      - name: first_seen_at
+        description: "Start of the user's first session."
+      - name: last_seen_at
+        description: "Last event of the user's latest session."
+      - name: session_count
+        description: "Number of sessions."
+      - name: event_count
+        description: "Number of events."
+      - name: primary_browser
+        description: "The browser of most of the user's sessions; on a tie, the browser of the most recent one."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Chrome', 'Firefox', 'IE', 'Other', 'Safari']
+      - name: first_session_traffic_source
+        description: "Traffic source of the user's first session."
+      - name: last_session_traffic_source
+        description: "Traffic source of the user's latest session."
+
   - name: int_orders_current
     description: "Latest version of each order: one row per order_id. Deleted orders are kept, flagged by is_deleted."
     columns:
