@@ -94,21 +94,21 @@ models:
       - name: is_returned
         description: "True when the item's status is Returned."
       - name: sale_price
-        description: "What the item sold for (gross)."
+        description: "What the item sold for (gross), in USD."
         data_tests:
           - not_null
       - name: unit_cost
-        description: "What the sold stock unit cost the shop."
+        description: "What the sold stock unit cost the shop, in USD."
         data_tests:
           - not_null
       - name: gross_margin
-        description: "sale_price minus unit_cost."
+        description: "sale_price minus unit_cost, in USD."
       - name: net_sale_price
-        description: "sale_price while the item is neither cancelled nor returned, else 0. The revenue measure."
+        description: "sale_price while the item is neither cancelled nor returned, else 0, in USD. The revenue measure."
         data_tests:
           - not_null
       - name: net_margin
-        description: "gross_margin while the item is neither cancelled nor returned, else 0."
+        description: "gross_margin while the item is neither cancelled nor returned, else 0, in USD."
         data_tests:
           - not_null
 
@@ -120,6 +120,10 @@ models:
         data_tests:
           - unique
           - not_null
+          - dbt_utils.sequential_values:
+              arguments:
+                interval: 1
+                datepart: day
       - name: year
         description: "Calendar year."
       - name: quarter
@@ -151,6 +155,10 @@ models:
 
   - name: dim_users
     description: "One row per user (current state). Personal data (names, email, street address) is left out. Deleted users are kept, flagged by is_deleted."
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(session_count = 0) = (primary_browser is null)"
     columns:
       - name: user_id
         description: "User id."
@@ -230,9 +238,9 @@ models:
       - name: sku
         description: "Stock keeping unit code."
       - name: retail_price
-        description: "List price of the product."
+        description: "List price of the product, in USD."
       - name: product_cost
-        description: "What the product costs the shop."
+        description: "What the product costs the shop, in USD."
       - name: is_deleted
         description: "True when the product's latest version is a delete."
         data_tests:

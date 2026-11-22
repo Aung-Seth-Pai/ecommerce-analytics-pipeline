@@ -93,9 +93,13 @@ models:
               arguments:
                 values: ['Processing', 'Shipped', 'Complete', 'Returned', 'Cancelled']
       - name: sale_price
-        description: "Price the item sold for."
+        description: "Price the item sold for, in USD, rounded to cents."
         data_tests:
           - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
       - name: created_at
         description: "Synthetic in thelook: unrelated to the order's created_at."
       - name: shipped_at
@@ -140,6 +144,11 @@ models:
         description: "Email address."
       - name: age
         description: "Age in years."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 120
       - name: gender
         description: "Gender."
         data_tests:
@@ -148,7 +157,7 @@ models:
               arguments:
                 values: ['F', 'M']
       - name: user_traffic_source
-        description: "Channel the user signed up through."
+        description: "Traffic source recorded on the user."
         data_tests:
           - accepted_values:
               arguments:
@@ -290,9 +299,19 @@ models:
       - name: sku
         description: "Stock keeping unit code."
       - name: product_cost
-        description: "What the product costs the shop."
+        description: "What the product costs the shop, in USD, to 4 decimals."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
       - name: retail_price
-        description: "List price of the product."
+        description: "List price of the product, in USD, rounded to cents."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
       - name: _op
         description: "{{ doc('col__op') }}"
       - name: _source_updated_at
@@ -328,7 +347,12 @@ models:
       - name: product_distribution_center_id
         description: "The product's distribution center, copied from products."
       - name: unit_cost
-        description: "What the unit cost the shop."
+        description: "What the unit cost the shop, in USD, to 4 decimals."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
       - name: product_name
         description: "Product name, copied from products."
       - name: product_brand
@@ -340,7 +364,7 @@ models:
       - name: product_sku
         description: "Product SKU, copied from products."
       - name: product_retail_price
-        description: "Product retail price, copied from products."
+        description: "Product retail price, copied from products, in USD, rounded to cents."
       - name: created_at
         description: "When the unit entered stock. Synthetic in thelook: unrelated to the order items that reference the unit."
         data_tests:

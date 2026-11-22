@@ -5,7 +5,7 @@ sources:
     description: >
       Raw layer: the landed batches appended by the loader, one table per source table plus
       _loaded_batches. Append-only: every delivered version of a row is kept, and a batch can be
-      appended more than once.
+      appended more than once. Amounts are in one currency, assumed USD, stored as floating point.
     database: "{{ target.database }}"
     schema: ecommerce_raw
     config:
