@@ -85,6 +85,7 @@ models:
       - name: inventory_item_id
         description: "The stock unit sold."
         data_tests:
+          - unique
           - relationships:
               arguments:
                 to: ref('int_inventory_items_current')

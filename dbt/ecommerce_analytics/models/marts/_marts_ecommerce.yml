@@ -112,6 +112,72 @@ models:
         data_tests:
           - not_null
 
+  - name: fct_sales_movements
+    description: >
+      One row per money movement on an order item: revenue by the date money moved. A sale is
+      booked on the order date for +sale_price; a return is booked on the item's returned_at for
+      -sale_price, a full refund. Cancelled items were never charged and have no rows. Each order
+      item is one unit. Assumes payment at checkout, as there is no payment data.
+    columns:
+      - name: sales_movement_id
+        description: "Movement id: one per order item and movement type."
+        data_tests:
+          - unique
+          - not_null
+      - name: order_item_id
+        description: "The order item the money moved for."
+        data_tests:
+          - not_null
+      - name: order_id
+        description: "The order the item belongs to (degenerate dimension)."
+        data_tests:
+          - not_null
+      - name: user_id
+        description: "The user who placed the order."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: product_id
+        description: "The product sold."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: distribution_center_id
+        description: "The distribution center of the stock unit sold."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_distribution_centers')
+                field: distribution_center_id
+      - name: movement_type
+        description: "sale or return."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['sale', 'return']
+      - name: movement_date
+        description: "UTC date the money moved."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: movement_at
+        description: "When the money moved (UTC)."
+      - name: amount
+        description: "Money in (+) or out (-), in USD."
+        data_tests:
+          - not_null
+        
   - name: dim_date
     description: "One row per calendar day (UTC) from 2018-01-01 to 2028-12-31."
     columns:
