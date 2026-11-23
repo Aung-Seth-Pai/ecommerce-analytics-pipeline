@@ -286,6 +286,64 @@ models:
       - name: net_margin
         description: "Sum of the items' net_margin, in USD."
 
+  - name: fct_user_summary
+    description: >
+      One row per user, including users with no orders or no visits: their order history and site
+      activity as of the last build. An accumulating fact at user grain, so values change as the
+      user keeps ordering and browsing, and describe the user now, not at the time of past orders;
+      for an order's place in the user's history, use fct_orders.user_order_number.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(order_count = 0) = (first_order_at is null)"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(session_count = 0) = (primary_browser is null)"
+    columns:
+      - name: user_id
+        description: "User id."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: first_order_at
+        description: "When the user placed their first order; null if the user has no orders."
+      - name: last_order_at
+        description: "When the user placed their latest order; null if the user has no orders."
+      - name: order_count
+        description: "Orders placed, cancelled ones included; 0 if the user has no orders."
+        data_tests:
+          - not_null
+      - name: cancelled_order_count
+        description: "Orders placed and then cancelled; 0 if none."
+        data_tests:
+          - not_null
+      - name: lifetime_net_sale_amount
+        description: "Revenue from the user's orders, in USD: items neither cancelled nor returned, on current state; 0 if the user has no orders."
+        data_tests:
+          - not_null
+      - name: first_seen_at
+        description: "Start of the user's first session; null if the user has no events."
+      - name: last_seen_at
+        description: "Last event of the user's latest session; null if the user has no events."
+      - name: session_count
+        description: "Number of sessions; 0 if the user has no events."
+        data_tests:
+          - not_null
+      - name: event_count
+        description: "Number of events; 0 if the user has no events."
+        data_tests:
+          - not_null
+      - name: primary_browser
+        description: "The browser of most of the user's sessions; on a tie, the browser of the most recent one."
+      - name: first_session_traffic_source
+        description: "Traffic source of the user's first session."
+      - name: last_session_traffic_source
+        description: "Traffic source of the user's latest session."
+
   - name: dim_date
     description: "One row per calendar day (UTC) from 2018-01-01 to 2028-12-31."
     columns:
@@ -328,11 +386,7 @@ models:
         description: "True on the last day of its month."
 
   - name: dim_users
-    description: "One row per user (current state). Personal data (names, email, street address) is left out. Deleted users are kept, flagged by is_deleted."
-    data_tests:
-      - dbt_utils.expression_is_true:
-          arguments:
-            expression: "(session_count = 0) = (primary_browser is null)"
+    description: "One row per user (current state): descriptive attributes from the user record only. Personal data (names, email, street address) is left out. Deleted users are kept, flagged by is_deleted. Order history and site activity are in fct_user_summary."
     columns:
       - name: user_id
         description: "User id."
@@ -374,24 +428,6 @@ models:
         description: "True when the user's latest version is a delete."
         data_tests:
           - not_null
-      - name: first_seen_at
-        description: "Start of the user's first session; null if the user has no events."
-      - name: last_seen_at
-        description: "Last event of the user's latest session; null if the user has no events."
-      - name: session_count
-        description: "Number of sessions; 0 if the user has no events."
-        data_tests:
-          - not_null
-      - name: event_count
-        description: "Number of events; 0 if the user has no events."
-        data_tests:
-          - not_null
-      - name: primary_browser
-        description: "The browser of most of the user's sessions; on a tie, the browser of the most recent one. Overwritten as the user keeps browsing."
-      - name: first_session_traffic_source
-        description: "Traffic source of the user's first session."
-      - name: last_session_traffic_source
-        description: "Traffic source of the user's latest session. Overwritten as the user keeps browsing."
 
   - name: dim_products
     description: "One row per product (current state). Deleted products are kept, flagged by is_deleted."

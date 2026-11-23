@@ -213,6 +213,29 @@ models:
         data_tests:
           - not_null
 
+  - name: int_users_order_history
+    description: "One row per user with at least one non-deleted order: their order history on current state. Overwritten as the user keeps ordering."
+    columns:
+      - name: user_id
+        description: "User id."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_users_current')
+                field: user_id
+      - name: first_order_at
+        description: "When the user placed their first order."
+      - name: last_order_at
+        description: "When the user placed their latest order."
+      - name: order_count
+        description: "Orders placed, cancelled ones included."
+      - name: cancelled_order_count
+        description: "Orders placed and then cancelled."
+      - name: lifetime_net_sale_amount
+        description: "Sum of the orders' net_sale_amount, in USD: items neither cancelled nor returned, on current state."
+
 unit_tests:
   - name: current_state_keeps_the_latest_version_of_each_order
     description: >
