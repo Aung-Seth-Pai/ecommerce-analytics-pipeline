@@ -41,14 +41,13 @@ select
 
     -- status
     order_item_status,
-    order_item_status = 'Cancelled'                 as is_cancelled,
-    order_item_status = 'Returned'                  as is_returned,
 
     -- measures
     sale_price,
     unit_cost,
     sale_price - unit_cost                          as gross_margin,
     if(counts_as_revenue, sale_price, 0)            as net_sale_price,
-    if(counts_as_revenue, sale_price - unit_cost, 0) as net_margin
+    if(counts_as_revenue, sale_price - unit_cost, 0) as net_margin,
+    shipping_distance_km
 
 from classified

@@ -1,0 +1,75 @@
+-- One row per order from current state, deleted orders kept and flagged. Milestones are the
+-- order's own timestamps; item timestamps are never rolled up. From its non-deleted items the
+-- order takes counts, money and the number of distribution centers it ships from.
+
+with orders as (
+    select * from {{ ref('int_orders_current') }}
+),
+
+order_items as (
+    select * from {{ ref('int_order_items_joined') }}
+    where not is_deleted
+),
+
+items_per_order as (
+    select
+        order_id,
+        count(*)                                                        as item_count,
+        count(case when order_item_status = 'Cancelled' then 1 end)     as cancelled_item_count,
+        count(case when order_item_status = 'Returned' then 1 end)      as returned_item_count,
+        count(distinct order_item_status) > 1                           as has_mixed_item_status,
+        count(distinct distribution_center_id)                          as distribution_center_count,
+        sum(sale_price)                                                 as gross_sale_amount,
+        sum(sale_price - unit_cost)                                     as gross_margin,
+        sum(case when order_item_status not in ('Cancelled', 'Returned')
+                 then sale_price else 0 end)                            as net_sale_amount,
+        sum(case when order_item_status not in ('Cancelled', 'Returned')
+                 then sale_price - unit_cost else 0 end)                as net_margin
+    from order_items
+    group by order_id
+),
+
+numbered as (
+    select
+        *,
+        case
+            when not is_deleted
+            then row_number() over (partition by user_id, is_deleted order by created_at, order_id)
+        end as user_order_number
+    from orders
+)
+
+select
+    -- ids
+    numbered.order_id,
+    numbered.user_id,
+
+    -- status and sequence
+    numbered.order_status,
+    numbered.user_order_number,
+
+    -- milestones (the order's own)
+    numbered.created_at                             as order_created_at,
+    numbered.shipped_at,
+    numbered.delivered_at,
+    numbered.returned_at,
+
+    -- item mix
+    coalesce(items.item_count, 0)                   as item_count,
+    coalesce(items.cancelled_item_count, 0)         as cancelled_item_count,
+    coalesce(items.returned_item_count, 0)          as returned_item_count,
+    coalesce(items.has_mixed_item_status, false)    as has_mixed_item_status,
+    coalesce(items.distribution_center_count, 0)    as distribution_center_count,
+
+    -- money
+    coalesce(items.gross_sale_amount, 0)            as gross_sale_amount,
+    coalesce(items.gross_margin, 0)                 as gross_margin,
+    coalesce(items.net_sale_amount, 0)              as net_sale_amount,
+    coalesce(items.net_margin, 0)                   as net_margin,
+
+    -- metadata
+    numbered.is_deleted
+
+from numbered
+left join items_per_order as items
+    on numbered.order_id = items.order_id

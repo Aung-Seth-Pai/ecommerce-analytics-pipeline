@@ -89,10 +89,6 @@ models:
           - accepted_values:
               arguments:
                 values: ['Processing', 'Shipped', 'Complete', 'Returned', 'Cancelled']
-      - name: is_cancelled
-        description: "True when the item's status is Cancelled."
-      - name: is_returned
-        description: "True when the item's status is Returned."
       - name: sale_price
         description: "What the item sold for (gross), in USD."
         data_tests:
@@ -111,6 +107,8 @@ models:
         description: "gross_margin while the item is neither cancelled nor returned, else 0, in USD."
         data_tests:
           - not_null
+      - name: shipping_distance_km
+        description: "Great-circle (straight-line) distance in km from the stock unit's distribution center to the user's current address, in km. Not the road or shipping route. Aggregate by order_id as the analysis needs; an order is complete only when its farthest item arrives."
 
   - name: fct_sales_movements
     description: >
@@ -177,7 +175,117 @@ models:
         description: "Money in (+) or out (-), in USD."
         data_tests:
           - not_null
-        
+
+  - name: fct_orders
+    description: >
+      One row per order that is not deleted: an accumulating snapshot. Milestones are the order's
+      own timestamps, each with a date that joins dim_date; lags are in whole minutes and stay null
+      until the later milestone happens. Item counts and money are rolled up from the order's items
+      on current state, as in fct_order_items. There is no per-order distance: aggregate
+      shipping_distance_km from fct_order_items as the analysis needs.
+    columns:
+      - name: order_id
+        description: "Order id."
+        data_tests:
+          - unique
+          - not_null
+      - name: user_id
+        description: "The user who placed the order."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: order_status
+        description: "The order's current status."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Processing', 'Shipped', 'Complete', 'Returned', 'Cancelled']
+      - name: user_order_number
+        description: "The order's position among the user's orders by order time, 1 for the first. Cancelled orders count."
+        data_tests:
+          - not_null
+      - name: order_date
+        description: "UTC date the order was placed."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: shipped_date
+        description: "UTC date the order shipped; null if not shipped."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: delivered_date
+        description: "UTC date the order was delivered; null if not delivered."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: returned_date
+        description: "UTC date the order was returned; null if not returned."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: order_created_at
+        description: "When the order was placed (UTC)."
+      - name: shipped_at
+        description: "When the order shipped (UTC)."
+      - name: delivered_at
+        description: "When the order was delivered (UTC)."
+      - name: returned_at
+        description: "When the order was returned (UTC)."
+      - name: minutes_to_ship
+        description: "Whole minutes from order placed to shipped; null until shipped."
+      - name: minutes_in_transit
+        description: "Whole minutes from shipped to delivered; null until delivered."
+      - name: minutes_to_deliver
+        description: "Whole minutes from order placed to delivered; null until delivered."
+      - name: minutes_to_return
+        description: "Whole minutes from delivered to returned; null unless returned."
+      - name: item_count
+        description: "Number of items in the order."
+        data_tests:
+          - not_null
+      - name: cancelled_item_count
+        description: "Number of the order's items whose status is Cancelled."
+        data_tests:
+          - not_null
+      - name: returned_item_count
+        description: "Number of the order's items whose status is Returned."
+        data_tests:
+          - not_null
+      - name: has_mixed_item_status
+        description: "True when the order's items do not all share one status. Always false in thelook, where an order's items move together."
+        data_tests:
+          - not_null
+      - name: distribution_center_count
+        description: "Number of distribution centers the order's items ship from."
+        data_tests:
+          - not_null
+      - name: gross_sale_amount
+        description: "Sum of the items' sale_price (gross), in USD."
+        data_tests:
+          - not_null
+      - name: gross_margin
+        description: "Sum of the items' gross_margin, in USD."
+      - name: net_sale_amount
+        description: "Sum of the items' net_sale_price, in USD: items neither cancelled nor returned. The order's revenue."
+        data_tests:
+          - not_null
+      - name: net_margin
+        description: "Sum of the items' net_margin, in USD."
+
   - name: dim_date
     description: "One row per calendar day (UTC) from 2018-01-01 to 2028-12-31."
     columns:

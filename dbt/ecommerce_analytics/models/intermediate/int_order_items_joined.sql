@@ -19,6 +19,16 @@ inventory_items as (
 
 ),
 
+users as (
+    select user_id, user_location
+    from {{ ref('int_users_current') }}
+),
+
+distribution_centers as (
+    select distribution_center_id, distribution_center_location
+    from {{ ref('int_distribution_centers_current') }}
+),
+
 joined as (
 
     select
@@ -37,6 +47,7 @@ joined as (
         -- measures
         order_items.sale_price,
         inventory_items.unit_cost,
+        st_distance(users.user_location, distribution_centers.distribution_center_location) / 1000 as shipping_distance_km,
 
         -- timestamps
         orders.created_at as order_created_at,
@@ -53,6 +64,10 @@ joined as (
         on orders.order_id = order_items.order_id
     left join inventory_items
         on inventory_items.inventory_item_id = order_items.inventory_item_id
+    left join users
+        on order_items.user_id = users.user_id
+    left join distribution_centers
+        on inventory_items.product_distribution_center_id = distribution_centers.distribution_center_id
 
 )
 

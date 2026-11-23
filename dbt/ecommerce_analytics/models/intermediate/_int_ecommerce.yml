@@ -162,7 +162,7 @@ models:
           - not_null
 
   - name: int_order_items_joined
-    description: "One row per order item, from current state, with its order's status and creation time and its stock unit's cost and distribution center. Deleted items, and items of deleted orders, are kept and flagged by is_deleted."
+    description: "One row per order item, from current state, with its order's status and creation time, its stock unit's cost and distribution center, and the straight-line distance from that center to the user. Deleted items, and items of deleted orders, are kept and flagged by is_deleted."
     data_tests:
       - dbt_utils.equal_rowcount:
           arguments:
@@ -185,12 +185,31 @@ models:
         description: "What the sold stock unit cost the shop."
         data_tests:
           - not_null
+      - name: shipping_distance_km
+        description: "Great-circle (straight-line) distance in km from the stock unit's distribution center to the user's current address. Not the road or shipping route."
+        data_tests:
+          - not_null
       - name: order_created_at
         description: "When the item's order was placed."
         data_tests:
           - not_null
       - name: is_deleted
         description: "True when the item or its order is deleted."
+        data_tests:
+          - not_null
+
+  - name: int_orders_enriched
+    description: "One row per order from current state, with the order's own milestone timestamps and counts, money and distribution center count rolled up from its non-deleted items. Item timestamps are not rolled up. Deleted orders are kept, flagged by is_deleted."
+    columns:
+      - name: order_id
+        description: "Order id."
+        data_tests:
+          - unique
+          - not_null
+      - name: user_order_number
+        description: "The order's position among the user's non-deleted orders by order time, 1 for the first; ties broken by order_id. Cancelled orders count. Null for deleted orders."
+      - name: is_deleted
+        description: "True when the order's latest version is a delete."
         data_tests:
           - not_null
 
