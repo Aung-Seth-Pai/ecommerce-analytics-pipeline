@@ -344,6 +344,147 @@ models:
       - name: last_session_traffic_source
         description: "Traffic source of the user's latest session."
 
+  - name: fct_events
+    description: >
+      One row per website event: a factless transaction fact, where counting rows is the measure.
+      Events are never updated. Browser, traffic source and IP location are constant per session
+      and live on fct_sessions. user_id is null for anonymous sessions. The IP address is left out
+      as personal data.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [session_id, sequence_number]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(event_type = 'product') = (product_id is not null)"
+    columns:
+      - name: event_id
+        description: "Event id."
+        data_tests:
+          - unique
+          - not_null
+      - name: session_id
+        description: "The browsing session the event belongs to."
+        data_tests:
+          - not_null
+      - name: user_id
+        description: "The user who triggered the event; null for anonymous sessions."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: product_id
+        description: "The product viewed, parsed from the uri; set only on product events."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: sequence_number
+        description: "Order of the event within its session, from 1."
+        data_tests:
+          - not_null
+      - name: event_type
+        description: "Kind of interaction."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['home', 'department', 'product', 'cart', 'purchase', 'cancel']
+      - name: uri
+        description: "Page path requested."
+      - name: event_date
+        description: "UTC date of the event."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: event_at
+        description: "When the event happened (UTC)."
+
+  - name: fct_sessions
+    description: >
+      One row per browsing session, built from its events. A row can change until the session's
+      last event has arrived, since a session that crosses UTC midnight gets later events in the
+      next day's batch. user_id and user_session_number are null for anonymous sessions. Event
+      counts per type add up to event_count.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "home_event_count + department_event_count + product_event_count + cart_event_count + purchase_event_count + cancel_event_count = event_count"
+    columns:
+      - name: session_id
+        description: "Browsing session id."
+        data_tests:
+          - unique
+          - not_null
+      - name: user_id
+        description: "The session's user; null for anonymous sessions."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_id
+      - name: user_session_number
+        description: "The session's position among the user's sessions by start time, 1 for the first; ties broken by session_id. Null for anonymous sessions."
+      - name: browser
+        description: "Browser used."
+      - name: session_traffic_source
+        description: "Channel that brought the session."
+      - name: ip_city
+        description: "City derived from the session's IP address."
+      - name: ip_state
+        description: "State or province derived from the session's IP address."
+      - name: ip_postal_code
+        description: "Postal code derived from the session's IP address."
+      - name: session_date
+        description: "UTC date the session started."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: session_started_at
+        description: "Time of the session's first event (UTC)."
+      - name: session_ended_at
+        description: "Time of the session's last event (UTC)."
+      - name: session_duration_seconds
+        description: "Whole seconds from the first to the last event; 0 for a single-event session."
+        data_tests:
+          - not_null
+      - name: landing_event_type
+        description: "Event type of the session's first event."
+        data_tests:
+          - not_null
+      - name: landing_uri
+        description: "Page path of the session's first event."
+      - name: exit_event_type
+        description: "Event type of the session's last event."
+        data_tests:
+          - not_null
+      - name: exit_uri
+        description: "Page path of the session's last event."
+      - name: event_count
+        description: "Number of events in the session."
+        data_tests:
+          - not_null
+      - name: home_event_count
+        description: "Home page events."
+      - name: department_event_count
+        description: "Department page events."
+      - name: product_event_count
+        description: "Product page events."
+      - name: cart_event_count
+        description: "Cart events."
+      - name: purchase_event_count
+        description: "Purchase events."
+      - name: cancel_event_count
+        description: "Cancel events."
+
   - name: dim_date
     description: "One row per calendar day (UTC) from 2018-01-01 to 2028-12-31."
     columns:
