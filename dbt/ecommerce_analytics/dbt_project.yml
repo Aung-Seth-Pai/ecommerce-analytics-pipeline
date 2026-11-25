@@ -20,3 +20,7 @@ models:
       +materialized: view
     marts:
       +materialized: table
+
+vars:
+  return_window_days: 3      # thelook: every return is within 3 days of delivery
+  delivery_window_days: 8    # thelook: every order is delivered within 8 days

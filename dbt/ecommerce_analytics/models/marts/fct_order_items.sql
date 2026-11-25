@@ -1,7 +1,7 @@
--- One row per order item that is not deleted.
--- Revenue counts an item only while it is neither cancelled nor returned (current state):
--- a later return lowers the revenue of the item's original order date. For revenue by the
--- period in which money moved, use fct_sales_movements.
+-- One row per order item that is not deleted. sale_price is what was ordered; net_sales counts
+-- an item only while it is neither cancelled nor returned (current state), so a later return
+-- lowers the net sales of the item's original order date. gross_profit is net sales minus the
+-- cost of the kept items. For sales by the period in which money moved, use fct_sales_movements.
 
 with order_items as (
 

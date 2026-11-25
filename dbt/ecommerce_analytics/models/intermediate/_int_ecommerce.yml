@@ -212,6 +212,18 @@ models:
         description: "True when the order's latest version is a delete."
         data_tests:
           - not_null
+      - name: is_return_window_closed
+        description: "True when the order was delivered at least return_window_days before the data cutoff, so its return outcome is final."
+        data_tests:
+          - not_null
+      - name: is_returned_within_window
+        description: "True when the order was returned within return_window_days of delivery."
+        data_tests:
+          - not_null
+      - name: is_delivery_window_closed
+        description: "True when the order was placed at least delivery_window_days before the data cutoff, so its delivery outcome is final."
+        data_tests:
+          - not_null
 
   - name: int_users_order_history
     description: "One row per user with at least one non-deleted order: their order history on current state. Overwritten as the user keeps ordering."
@@ -235,6 +247,14 @@ models:
         description: "Orders placed and then cancelled."
       - name: lifetime_net_sales
         description: "Sum of the orders' net_sales, in USD: items neither cancelled nor returned, on current state."
+
+  - name: int_data_cutoff
+    description: "One row: data_cutoff_at, the end of the latest loaded batch window across orders, order items, users and events. The data's own 'now', used for maturity rules instead of the current date."
+    columns:
+      - name: data_cutoff_at
+        description: "Exclusive end of all loaded data (midnight UTC of the latest _batch_date)."
+        data_tests:
+          - not_null
 
 unit_tests:
   - name: current_state_keeps_the_latest_version_of_each_order

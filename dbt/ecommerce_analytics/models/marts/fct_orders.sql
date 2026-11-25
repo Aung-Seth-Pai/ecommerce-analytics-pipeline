@@ -40,10 +40,16 @@ select
     timestamp_diff(delivered_at, order_created_at, minute)  as minutes_to_deliver,
     timestamp_diff(returned_at, delivered_at, minute)       as minutes_to_return,
 
+    -- maturity against the data cutoff
+    is_return_window_closed,
+    is_returned_within_window,
+    is_delivery_window_closed,
+
     -- item mix
     item_count,
     cancelled_item_count,
     returned_item_count,
+    kept_item_count,
     has_mixed_item_status,
     distribution_center_count,
 

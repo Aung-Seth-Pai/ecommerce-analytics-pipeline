@@ -188,6 +188,17 @@ models:
       until the later milestone happens. Item counts and money are rolled up from the order's items
       on current state, as in fct_order_items. There is no per-order distance: aggregate
       shipping_distance_km from fct_order_items as the analysis needs.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "order_status != 'Returned' or is_returned_within_window"
+          config:
+            severity: warn
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "delivered_at is null or delivered_at <= order_created_at + interval {{ var('delivery_window_days') }} day"
+          config:
+            severity: warn
     columns:
       - name: order_id
         description: "Order id."
@@ -263,6 +274,18 @@ models:
         description: "Whole minutes from order placed to delivered; null until delivered."
       - name: minutes_to_return
         description: "Whole minutes from delivered to returned; null unless returned."
+      - name: is_return_window_closed
+        description: "True when the order was delivered at least return_window_days (dbt var) before the data cutoff, so its return outcome is final. Use it as the denominator of the return rate."
+        data_tests:
+          - not_null
+      - name: is_returned_within_window
+        description: "True when the order was returned within return_window_days of delivery."
+        data_tests:
+          - not_null
+      - name: is_delivery_window_closed
+        description: "True when the order was placed at least delivery_window_days (dbt var) before the data cutoff, so its delivery outcome is final. Average shipping and delivery times over these orders only."
+        data_tests:
+          - not_null
       - name: item_count
         description: "Number of items in the order."
         data_tests:
@@ -273,6 +296,10 @@ models:
           - not_null
       - name: returned_item_count
         description: "Number of the order's items whose status is Returned."
+        data_tests:
+          - not_null
+      - name: kept_item_count
+        description: "Number of the order's items neither cancelled nor returned: the items the customer kept and paid for."
         data_tests:
           - not_null
       - name: has_mixed_item_status

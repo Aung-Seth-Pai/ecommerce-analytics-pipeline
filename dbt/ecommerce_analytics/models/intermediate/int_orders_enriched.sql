@@ -11,12 +11,18 @@ order_items as (
     where not is_deleted
 ),
 
+cutoff as (
+    select data_cutoff_at from {{ ref('int_data_cutoff') }}
+),
+
 items_per_order as (
     select
         order_id,
         count(*)                                                        as item_count,
         count(case when order_item_status = 'Cancelled' then 1 end)     as cancelled_item_count,
         count(case when order_item_status = 'Returned' then 1 end)      as returned_item_count,
+        count(case when order_item_status not in ('Cancelled', 'Returned')
+                   then 1 end)                                          as kept_item_count,
         count(distinct order_item_status) > 1                           as has_mixed_item_status,
         count(distinct distribution_center_id)                          as distribution_center_count,
         sum(sale_price)                                                 as gmv,
@@ -53,10 +59,24 @@ select
     numbered.delivered_at,
     numbered.returned_at,
 
+    -- maturity against the data cutoff
+    coalesce(
+        numbered.delivered_at <= cutoff.data_cutoff_at - interval {{ var('return_window_days') }} day,
+        false
+    )                                               as is_return_window_closed,
+    coalesce(
+        numbered.returned_at <= numbered.delivered_at + interval {{ var('return_window_days') }} day,
+        false
+    )                                               as is_returned_within_window,
+    numbered.created_at <= cutoff.data_cutoff_at - interval {{ var('delivery_window_days') }} day
+                                                    as is_delivery_window_closed,
+
+
     -- item mix
     coalesce(items.item_count, 0)                   as item_count,
     coalesce(items.cancelled_item_count, 0)         as cancelled_item_count,
     coalesce(items.returned_item_count, 0)          as returned_item_count,
+    coalesce(items.kept_item_count, 0)              as kept_item_count,
     coalesce(items.has_mixed_item_status, false)    as has_mixed_item_status,
     coalesce(items.distribution_center_count, 0)    as distribution_center_count,
 
@@ -71,3 +91,4 @@ select
 from numbered
 left join items_per_order as items
     on numbered.order_id = items.order_id
+cross join cutoff
