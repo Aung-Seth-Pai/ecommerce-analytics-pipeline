@@ -1,0 +1,6 @@
+status,status_order,is_final,description
+Processing,1,false,"placed, not yet shipped"
+Shipped,2,false,left the distribution center
+Complete,3,true,delivered and kept
+Returned,4,true,"delivered, then returned"
+Cancelled,5,true,cancelled before shipping

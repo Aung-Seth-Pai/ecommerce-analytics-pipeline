@@ -1,0 +1,28 @@
+version: 2
+
+seeds:
+  - name: order_statuses
+    description: "One row per order or item status: its place in the lifecycle, whether it ends the lifecycle, and what it means. The single definition of status sort order."
+    config:
+      column_types:
+        status: string
+        status_order: int64
+        is_final: bool
+        description: string
+    columns:
+      - name: status
+        description: "Status value, as in order_status and order_item_status."
+        data_tests:
+          - unique
+          - not_null
+      - name: status_order
+        description: "Sort order along the lifecycle: 1 Processing to 4 Returned, with Cancelled last (5), as an exit from the main path."
+        data_tests:
+          - unique
+          - not_null
+      - name: is_final
+        description: "True when the status ends the lifecycle (Complete, Returned, Cancelled)."
+        data_tests:
+          - not_null
+      - name: description
+        description: "What the status means."

@@ -87,9 +87,14 @@ models:
         description: "The item's current status."
         data_tests:
           - not_null
-          - accepted_values:
+          - relationships:
               arguments:
-                values: ['Processing', 'Shipped', 'Complete', 'Returned', 'Cancelled']
+                to: ref('order_statuses')
+                field: status
+      - name: order_item_status_order
+        description: "Sort order of order_item_status along the lifecycle, from the order_statuses seed: 1 Processing to 4 Returned, Cancelled 5."
+        data_tests:
+          - not_null
       - name: sale_price
         description: "The item's price: what was ordered, in USD, before cancellations and returns."
         data_tests:
@@ -201,9 +206,14 @@ models:
         description: "The order's current status."
         data_tests:
           - not_null
-          - accepted_values:
+          - relationships:
               arguments:
-                values: ['Processing', 'Shipped', 'Complete', 'Returned', 'Cancelled']
+                to: ref('order_statuses')
+                field: status
+      - name: order_status_order
+        description: "Sort order of order_status along the lifecycle, from the order_statuses seed: 1 Processing to 4 Returned, Cancelled 5."
+        data_tests:
+          - not_null
       - name: user_order_number
         description: "The order's position among the user's orders by order time, 1 for the first. Cancelled orders count."
         data_tests:

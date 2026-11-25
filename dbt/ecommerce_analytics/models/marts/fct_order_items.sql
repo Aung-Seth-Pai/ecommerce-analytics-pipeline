@@ -17,6 +17,13 @@ classified as (
         order_item_status not in ('Cancelled', 'Returned') as counts_as_revenue
     from order_items
 
+),
+
+order_statuses as (
+
+    select status, status_order
+    from {{ ref('order_statuses') }}
+
 )
 
 select
@@ -41,6 +48,7 @@ select
 
     -- status
     order_item_status,
+    order_statuses.status_order                     as order_item_status_order,
 
     -- measures
     sale_price,
@@ -50,3 +58,5 @@ select
     shipping_distance_km
 
 from classified
+left join order_statuses
+    on classified.order_item_status = order_statuses.status

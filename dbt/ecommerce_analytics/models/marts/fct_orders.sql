@@ -5,6 +5,11 @@
 with orders as (
     select * from {{ ref('int_orders_enriched') }}
     where not is_deleted
+),
+
+order_statuses as (
+    select status, status_order
+    from {{ ref('order_statuses') }}
 )
 
 select
@@ -14,6 +19,7 @@ select
 
     -- status and sequence
     order_status,
+    order_statuses.status_order                             as order_status_order,
     user_order_number,
 
     -- milestone dates
@@ -47,3 +53,5 @@ select
     gross_profit
 
 from orders
+left join order_statuses
+    on orders.order_status = order_statuses.status
