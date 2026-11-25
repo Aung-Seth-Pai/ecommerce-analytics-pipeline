@@ -19,12 +19,11 @@ items_per_order as (
         count(case when order_item_status = 'Returned' then 1 end)      as returned_item_count,
         count(distinct order_item_status) > 1                           as has_mixed_item_status,
         count(distinct distribution_center_id)                          as distribution_center_count,
-        sum(sale_price)                                                 as gross_sale_amount,
-        sum(sale_price - unit_cost)                                     as gross_margin,
+        sum(sale_price)                                                 as gmv,
         sum(case when order_item_status not in ('Cancelled', 'Returned')
-                 then sale_price else 0 end)                            as net_sale_amount,
+                 then sale_price else 0 end)                            as net_sales,
         sum(case when order_item_status not in ('Cancelled', 'Returned')
-                 then sale_price - unit_cost else 0 end)                as net_margin
+                 then sale_price - unit_cost else 0 end)                as gross_profit
     from order_items
     group by order_id
 ),
@@ -62,10 +61,9 @@ select
     coalesce(items.distribution_center_count, 0)    as distribution_center_count,
 
     -- money
-    coalesce(items.gross_sale_amount, 0)            as gross_sale_amount,
-    coalesce(items.gross_margin, 0)                 as gross_margin,
-    coalesce(items.net_sale_amount, 0)              as net_sale_amount,
-    coalesce(items.net_margin, 0)                   as net_margin,
+    coalesce(items.gmv, 0)                          as gmv,
+    coalesce(items.net_sales, 0)                    as net_sales,
+    coalesce(items.gross_profit, 0)                 as gross_profit,
 
     -- metadata
     numbered.is_deleted

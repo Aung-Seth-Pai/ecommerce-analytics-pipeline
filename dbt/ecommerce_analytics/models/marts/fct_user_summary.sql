@@ -22,7 +22,7 @@ select
     order_history.last_order_at,
     coalesce(order_history.order_count, 0)                  as order_count,
     coalesce(order_history.cancelled_order_count, 0)        as cancelled_order_count,
-    coalesce(order_history.lifetime_net_sale_amount, 0)     as lifetime_net_sale_amount,
+    coalesce(order_history.lifetime_net_sales, 0)           as lifetime_net_sales,
 
     -- site activity
     web_activity.first_seen_at,

@@ -5,14 +5,15 @@ with from_items as (
     select
         order_id,
         count(*)                as item_count,
-        sum(sale_price)         as gross_sale_amount,
-        sum(net_sale_price)     as net_sale_amount
+        sum(sale_price)         as gmv,
+        sum(net_sales)          as net_sales,
+        sum(gross_profit)       as gross_profit
     from {{ ref('fct_order_items') }}
     group by order_id
 ),
 
 from_orders as (
-    select order_id, item_count, gross_sale_amount, net_sale_amount
+    select order_id, item_count, gmv, net_sales, gross_profit
     from {{ ref('fct_orders') }}
 )
 
@@ -20,13 +21,16 @@ select
     coalesce(o.order_id, i.order_id)    as order_id,
     o.item_count                        as order_item_count,
     i.item_count                        as summed_item_count,
-    o.gross_sale_amount                 as order_gross_sale_amount,
-    i.gross_sale_amount                 as summed_gross_sale_amount,
-    o.net_sale_amount                   as order_net_sale_amount,
-    i.net_sale_amount                   as summed_net_sale_amount
+    o.gmv                               as order_gmv,
+    i.gmv                               as summed_gmv,
+    o.net_sales                         as order_net_sales,
+    i.net_sales                         as summed_net_sales,
+    o.gross_profit                      as order_gross_profit,
+    i.gross_profit                      as summed_gross_profit
 from from_orders as o
 full outer join from_items as i
     on o.order_id = i.order_id
 where coalesce(o.item_count, 0) != coalesce(i.item_count, 0)
-   or coalesce(o.gross_sale_amount, 0) != coalesce(i.gross_sale_amount, 0)
-   or coalesce(o.net_sale_amount, 0) != coalesce(i.net_sale_amount, 0)
+   or coalesce(o.gmv, 0) != coalesce(i.gmv, 0)
+   or coalesce(o.net_sales, 0) != coalesce(i.net_sales, 0)
+   or coalesce(o.gross_profit, 0) != coalesce(i.gross_profit, 0)

@@ -45,9 +45,8 @@ select
     -- measures
     sale_price,
     unit_cost,
-    sale_price - unit_cost                          as gross_margin,
-    if(counts_as_revenue, sale_price, 0)            as net_sale_price,
-    if(counts_as_revenue, sale_price - unit_cost, 0) as net_margin,
+    case when counts_as_revenue then sale_price else 0 end              as net_sales,
+    case when counts_as_revenue then sale_price - unit_cost else 0 end  as gross_profit,
     shipping_distance_km
 
 from classified

@@ -3,14 +3,15 @@ version: 2
 models:
   - name: fct_order_items
     description: >
-      One row per order item that is not deleted: a transaction fact. Revenue (net_sale_price)
-      counts an item only while it is neither cancelled nor returned, judged on its current state,
-      so a later return lowers the revenue of the item's original order date. sale_price is what
-      was ordered (gross). For revenue by the period in which money moved, use fct_sales_movements.
+      One row per order item that is not deleted: a transaction fact. sale_price is what was
+      ordered. net_sales counts an item only while it is neither cancelled nor returned, judged on
+      its current state, so a later return lowers the net sales of the item's original order date.
+      gross_profit is net sales minus the cost of the kept items. For sales by the period in which
+      money moved, use fct_sales_movements.
     data_tests:
       - dbt_utils.expression_is_true:
           arguments:
-            expression: "net_sale_price <= sale_price"
+            expression: "net_sales <= sale_price"
     columns:
       - name: order_item_id
         description: "Order item id."
@@ -90,32 +91,31 @@ models:
               arguments:
                 values: ['Processing', 'Shipped', 'Complete', 'Returned', 'Cancelled']
       - name: sale_price
-        description: "What the item sold for (gross), in USD."
+        description: "The item's price: what was ordered, in USD, before cancellations and returns."
         data_tests:
           - not_null
       - name: unit_cost
         description: "What the sold stock unit cost the shop, in USD."
         data_tests:
           - not_null
-      - name: gross_margin
-        description: "sale_price minus unit_cost, in USD."
-      - name: net_sale_price
-        description: "sale_price while the item is neither cancelled nor returned, else 0, in USD. The revenue measure."
+      - name: net_sales
+        description: "sale_price while the item is neither cancelled nor returned, else 0, in USD: the item's net sales."
         data_tests:
           - not_null
-      - name: net_margin
-        description: "gross_margin while the item is neither cancelled nor returned, else 0, in USD."
+      - name: gross_profit
+        description: "sale_price minus unit_cost while the item is neither cancelled nor returned, else 0, in USD. A returned item is assumed restocked, so it adds no revenue and no cost."
         data_tests:
           - not_null
       - name: shipping_distance_km
-        description: "Great-circle (straight-line) distance in km from the stock unit's distribution center to the user's current address, in km. Not the road or shipping route. Aggregate by order_id as the analysis needs; an order is complete only when its farthest item arrives."
+        description: "Great-circle (straight-line) distance in km from the stock unit's distribution center to the user's current address. Not the road or shipping route. Aggregate by order_id as the analysis needs; an order is complete only when its farthest item arrives."
 
   - name: fct_sales_movements
     description: >
       One row per money movement on an order item: revenue by the date money moved. A sale is
       booked on the order date for +sale_price; a return is booked on the item's returned_at for
       -sale_price, a full refund. Cancelled items were never charged and have no rows. Each order
-      item is one unit. Assumes payment at checkout, as there is no payment data.
+      item is one unit. Assumes payment at checkout, as there is no payment data. 
+      The sale rows add up to gross sales; with the return rows, to net sales.
     columns:
       - name: sales_movement_id
         description: "Movement id: one per order item and movement type."
@@ -273,18 +273,16 @@ models:
         description: "Number of distribution centers the order's items ship from."
         data_tests:
           - not_null
-      - name: gross_sale_amount
-        description: "Sum of the items' sale_price (gross), in USD."
+      - name: gmv
+        description: "Sum of the items' sale_price, in USD: everything ordered, cancelled and returned items included."
         data_tests:
           - not_null
-      - name: gross_margin
-        description: "Sum of the items' gross_margin, in USD."
-      - name: net_sale_amount
-        description: "Sum of the items' net_sale_price, in USD: items neither cancelled nor returned. The order's revenue."
+      - name: net_sales
+        description: "Sum of the items' net_sales, in USD: items neither cancelled nor returned. The order's revenue."
         data_tests:
           - not_null
-      - name: net_margin
-        description: "Sum of the items' net_margin, in USD."
+      - name: gross_profit
+        description: "Sum of the items' gross_profit, in USD."
 
   - name: fct_user_summary
     description: >
@@ -321,8 +319,8 @@ models:
         description: "Orders placed and then cancelled; 0 if none."
         data_tests:
           - not_null
-      - name: lifetime_net_sale_amount
-        description: "Revenue from the user's orders, in USD: items neither cancelled nor returned, on current state; 0 if the user has no orders."
+      - name: lifetime_net_sales
+        description: "Net sales from the user's orders, in USD: items neither cancelled nor returned, on current state; 0 if the user has no orders."
         data_tests:
           - not_null
       - name: first_seen_at

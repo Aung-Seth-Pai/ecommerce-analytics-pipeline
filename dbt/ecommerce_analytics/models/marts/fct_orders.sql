@@ -42,9 +42,8 @@ select
     distribution_center_count,
 
     -- measures
-    gross_sale_amount,
-    gross_margin,
-    net_sale_amount,
-    net_margin
+    gmv,
+    net_sales,
+    gross_profit
 
 from orders

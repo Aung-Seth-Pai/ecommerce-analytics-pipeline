@@ -13,6 +13,6 @@ select
     max(order_created_at)                                       as last_order_at,
     count(*)                                                    as order_count,
     count(case when order_status = 'Cancelled' then 1 end)      as cancelled_order_count,
-    sum(net_sale_amount)                                        as lifetime_net_sale_amount
+    sum(net_sales)                                              as lifetime_net_sales
 from orders
 group by user_id

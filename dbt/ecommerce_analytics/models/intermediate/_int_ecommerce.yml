@@ -233,8 +233,8 @@ models:
         description: "Orders placed, cancelled ones included."
       - name: cancelled_order_count
         description: "Orders placed and then cancelled."
-      - name: lifetime_net_sale_amount
-        description: "Sum of the orders' net_sale_amount, in USD: items neither cancelled nor returned, on current state."
+      - name: lifetime_net_sales
+        description: "Sum of the orders' net_sales, in USD: items neither cancelled nor returned, on current state."
 
 unit_tests:
   - name: current_state_keeps_the_latest_version_of_each_order
