@@ -10,11 +10,27 @@ An end-to-end analytics pipeline: a simulated e-commerce source that changes eve
 
 **Dashboard:** [Ecommerce Performance Overview](https://datastudio.google.com/reporting/d6868a15-0562-41e3-a816-f83315099fa3)
 
-> Work in progress. The project is built in phases: a complete but simple pipeline first (Phase 1), then depth phase by phase. See the [roadmap](#roadmap).
+> Phase 1 Complete: end-to-end pipeline, tested star schema, dashboard. Depth phases planned below - See the [roadmap](#roadmap).
 
 ## Overview
 
 This repository is a complete, working analytics pipeline on Google Cloud's free tier, from source data to dashboard. It replays Google's public `thelook_ecommerce` dataset as daily batches, loads them into BigQuery, models them into a tested star schema with dbt, and serves them to Data Studio.
+
+## What this answers
+
+The marts and the [dashboard](https://datastudio.google.com/reporting/d6868a15-0562-41e3-a816-f83315099fa3) answer these questions, in the order the dashboard reads:
+
+| Question | Built from |
+|---|---|
+| How is the business doing against the previous period? Net sales, gross profit and margin, orders and AOV, plus cancellations, returns and delivery time | `fct_orders` |
+| Are net sales growing week over week? | `fct_orders` |
+| Why did net sales change: more orders, bigger baskets, higher item prices, or more repeat customers? | `fct_orders` |
+| Which departments and categories drive net sales and gross margin? | `fct_order_items`, `dim_products` |
+| How fast do orders ship and arrive, and how often are they returned? Measured only on orders old enough for the outcome to be known | `fct_orders` |
+| Which traffic sources bring sessions that reach a product page, the cart and a purchase? | `fct_sessions` |
+| How much money came in and went back out each month? Counted on the date money moved, so a closed month never changes | `fct_sales_movements` |
+
+Metric definitions (GMV, net sales, gross profit, the two date bases for revenue, and the maturity windows) are in the [dbt README](dbt/ecommerce_analytics/README.md#key-design-choices).
 
 ## Architecture
 
@@ -83,7 +99,7 @@ cp .env.example .env        # then set GCP_PROJECT and RAW_DATASET
 uv run python -m ecom_pipeline.config      # check the values the commands will use
 ```
 
-**Run th**Run the pipeline**
+**Run the pipeline**
 
 ```bash
 # 1. Copy the public dataset into a local snapshot (once)
